@@ -4,6 +4,6 @@ namespace TomBroucke;
 
 class WpSyncPosts {
 	function __construct(){
-		echo "ok";
+		echo "nok";
 	}
 }
