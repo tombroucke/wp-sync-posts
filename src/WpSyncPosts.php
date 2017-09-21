@@ -6,6 +6,10 @@ class WpSyncPosts {
 	public $debug;
 	private $synced_ids = array();
 
+	/**
+	 * @param string $post_type Required.
+	 * @param boolean $debug
+	 */
 	function __construct( $post_type, $debug = false ){
 
 		$this->post_type = $post_type;
