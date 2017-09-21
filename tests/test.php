@@ -3,7 +3,7 @@
 // Autoload files using the Composer autoloader.
 require_once __DIR__ . '/../vendor/autoload.php';
 
-new WpSyncPosts( 'post' );
+$syncer = new WpSyncPosts( 'post' );
 
 $posts = wp_remote_get( 'https://myapi.com' );
 foreach ( $posts as $post ) {
@@ -26,7 +26,8 @@ foreach ( $posts as $post ) {
 			'mykey' => $post->meta->value
 		)
 	);
-	$this->syncer->sync_post( $qualifier, $postargs );
+	$syncer->sync_post( $qualifier, $postargs );
 
 }
-$this->syncer->clean_up();
+// Use with caution. The $syncer object keeps track of all changed posts and will delete all posts of this post type which weren't tracked in the previous steps.
+$syncer->clean_up();
