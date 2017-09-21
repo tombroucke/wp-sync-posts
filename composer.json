@@ -1,6 +1,7 @@
 {
     "name": "tombroucke/wp-sync-posts",
     "description": "Synchronize posts between your API and WordPress",
+    "license": "MIT",
     "authors": [
         {
             "name": "Tom Broucke",
