@@ -4,13 +4,13 @@ class WP_Post_Syncer{
 
 	public $post_type;
 	public $debug;
-	private $synced_ids = array();
+	protected $synced_ids = array();
 
 	/**
 	 * @param string $post_type Required.
 	 * @param boolean $debug
 	 */
-	function __construct( $post_type, $debug = false ){
+	function __construct( $post_type = 'post', $debug = false ){
 
 		$this->post_type = $post_type;
 		$this->debug = $debug;
@@ -26,9 +26,9 @@ class WP_Post_Syncer{
 	 * @return   mixed
 	 *
 	 */
-	public function sync_post( $qualifier, $postargs ){
+	public function sync_post( $postargs ){
 
-		$post = $this->find_post_by( $qualifier['by'], $qualifier['value'], ( isset( $qualifier['params'] ) ? $qualifier['params'] : array() ) );
+		$post = $this->find_post( $postargs['qualifier'] );
 		if( !$post ){
 			$this->save_post( $postargs );
 		}
@@ -42,28 +42,26 @@ class WP_Post_Syncer{
 	 *
 	 * Search for existing post
 	 *
-	 * @param    string $by Required. Options: post_id, meta_value
-	 * @param    mixed $value Required. Can be string for post_id or array for meta_value
-	 * @param    array $params Optional. Options: post_type, post_status
+	 * @param    array $qualifier Required. Options: by, key, value, post_status 
 	 * @return   mixed
 	 *
 	 */
-	private function find_post_by( $by, $value, $params = array() ){
+	protected function find_post( $qualifier ){
 
-		switch ( $by ) {
+		switch ( $qualifier['by'] ) {
 			case 'post_id':
-				return ( get_post_status( $value ) ? $value : false );
+				return ( get_post_status( $qualifier['value'] ) ? $qualifier['value'] : false );
 				break;
 			case 'meta_value':
 				$args = array(
 					'post_type' => $this->post_type,
-					'post_status' => ( isset( $params['posts_status'] ) ? $params['posts_status'] : get_post_stati() ),
+					'post_status' => ( isset( $qualifier['posts_status'] ) ? $qualifier['posts_status'] : get_post_stati() ),
 					'posts_per_page' => 1,
 					'fields' => 'ids',
 					'meta_query' => array(
 						array(
-							'key' => $value['key'],
-							'value' => $value['value'],
+							'key' => $qualifier['key'],
+							'value' => $qualifier['value'],
 							'compare' => '='
 						)
 					)
@@ -71,10 +69,10 @@ class WP_Post_Syncer{
 
 				$this->debug( $args, 'Arguments to find post' );
 
-				$vacancies = get_posts( $args );
+				$posts = get_posts( $args );
 
-				if( isset( $vacancies[0] ) ){
-					return $vacancies[0];
+				if( isset( $posts[0] ) ){
+					return $posts[0];
 				}
 				else{
 					return false;
@@ -92,11 +90,11 @@ class WP_Post_Syncer{
 	 *
 	 * Save new post
 	 *
-	 * @param    array $args Required. Options: post_title, post_type, post_status, post_date, post_name, ...
+	 * @param    array $args Required. Options: post_title, post_status, post_date, post_name, ...
 	 * @return   int $postid
 	 *
 	 */
-	private function save_post( $args ){
+	protected function save_post( $args ){
 
 		$postarr = array(
 			'post_title'    => $args['post_title'],
@@ -106,17 +104,55 @@ class WP_Post_Syncer{
 		);
 
 		$extra_parameters = array(
-			'post_author', 'post_date', 'post_date_gmt', 'post_content', 'post_content_filtered', 'post_excerpt', 'comment_status', 'ping_status', 'post_password', 'to_ping', 'pinged', 'post_modified', 'post_modified_gmt', 'post_parent', 'menu_order', 'post_mime_type', 'guid', 'post_category', 'tax_input', 'meta_input'
+			'post_author',
+			'post_date',
+			'post_date_gmt',
+			'post_content',
+			'post_content_filtered',
+			'post_excerpt',
+			'comment_status',
+			'ping_status',
+			'post_password',
+			'to_ping',
+			'pinged',
+			'post_modified',
+			'post_modified_gmt',
+			'post_parent',
+			'menu_order',
+			'post_mime_type',
+			'guid',
+			'post_category',
+			'tax_input',
+			'meta_input'
 		);
+
 		foreach ( $extra_parameters as $parameter ) {
 			if( isset( $args[$parameter] ) ){
 				$postarr[$parameter] = $args[$parameter];
 			}
 		}
 		$post_id = wp_insert_post( $postarr, $wp_error = false );
+		
+		$this->manipulate( $post_id, $args );
 
 		array_push( $this->synced_ids, $post_id );
 		return $post_id;
+
+	}
+
+
+	/**
+	 *
+	 * Update existing post
+	 *
+	 * @param    int $post_id Required. post ID
+	 * @param    array $args Required. Options: qualifier, post_title, post_status, post_date, post_name, ...
+	 * @return   int $postid
+	 *
+	 */
+	protected function manipulate( $post_id, $args ){
+
+		return $postid;
 
 	}
 
@@ -125,11 +161,11 @@ class WP_Post_Syncer{
 	 * Update existing post
 	 *
 	 * @param    int $id Required. post ID
-	 * @param    array $args Required. Options: post_title, post_type, post_status, post_date, post_name, ...
+	 * @param    array $args Required. Options: qualifier, post_title, post_status, post_date, post_name, ...
 	 * @return   int $postid
 	 *
 	 */
-	private function update_post( $id, $args ){		
+	protected function update_post( $id, $args ){		
 
 		$postarr = array(
 			'ID'			=> $id,
@@ -149,6 +185,8 @@ class WP_Post_Syncer{
 		}
 		$post_id = wp_update_post( $postarr );
 
+		$this->manipulate( $post_id, $args );
+
 		array_push( $this->synced_ids, $post_id );
 		return $post_id;
 
@@ -158,7 +196,7 @@ class WP_Post_Syncer{
 	 *
 	 * Remove unsynced posts
 	 *
-	 * @param    array $params Required. Options: post_type, force_delete
+	 * @param    array $params Required. Options: force_delete
 	 *
 	 */
 	public function clean_up( $params = array() ){
@@ -186,7 +224,7 @@ class WP_Post_Syncer{
 	 * @param    string $comment Optional. 
 	 *
 	 */
-	private function debug( $value, $comment = '' ){
+	protected function debug( $value, $comment = '' ){
 
 		if( $this->debug ){
 
