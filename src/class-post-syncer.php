@@ -1,6 +1,6 @@
 <?php
 
-class WpSyncPosts {
+class Wp_Post_Syncer{
 
 	public $post_type;
 	public $debug;
