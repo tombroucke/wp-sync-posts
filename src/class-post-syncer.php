@@ -1,6 +1,6 @@
 <?php
 
-class Wp_Post_Syncer{
+class WP_Post_Syncer{
 
 	public $post_type;
 	public $debug;
