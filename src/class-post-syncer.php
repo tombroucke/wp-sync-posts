@@ -2,7 +2,6 @@
 
 class WP_Post_Syncer{
 
-	public $post_type;
 	public $debug;
 	protected $synced_ids = array();
 
@@ -10,9 +9,8 @@ class WP_Post_Syncer{
 	 * @param string $post_type Required.
 	 * @param boolean $debug
 	 */
-	function __construct( $post_type = 'post', $debug = false ){
+	function __construct( $debug = false ){
 
-		$this->post_type = $post_type;
 		$this->debug = $debug;
 
 	}
@@ -28,7 +26,7 @@ class WP_Post_Syncer{
 	 */
 	public function sync_post( $postargs ){
 
-		$post = $this->find_post( $postargs['qualifier'] );
+		$post = $this->find_post( $postargs['post_type'], $postargs['qualifier'] );
 		if( !$post ){
 			$this->save_post( $postargs );
 		}
@@ -46,7 +44,7 @@ class WP_Post_Syncer{
 	 * @return   mixed
 	 *
 	 */
-	protected function find_post( $qualifier ){
+	protected function find_post( $post_type, $qualifier ){
 
 		switch ( $qualifier['by'] ) {
 			case 'post_id':
@@ -54,7 +52,7 @@ class WP_Post_Syncer{
 				break;
 			case 'meta_value':
 				$args = array(
-					'post_type' => $this->post_type,
+					'post_type' => $post_type,
 					'post_status' => ( isset( $qualifier['posts_status'] ) ? $qualifier['posts_status'] : get_post_stati() ),
 					'posts_per_page' => 1,
 					'fields' => 'ids',
@@ -97,13 +95,13 @@ class WP_Post_Syncer{
 	protected function save_post( $args ){
 
 		$postarr = array(
-			'post_title'    => $args['post_title'],
-			'post_type'		=> $this->post_type,
+			'post_type'		=> $args['post_type'],
 			'post_status'   => ( isset( $args['post_status'] ) ? $args['post_status'] : 'publish' ),
-			'post_name'		=> ( isset( $args['post_name'] ) ? $args['post_name'] : $args['post_title'] ),
 		);
 
 		$extra_parameters = array(
+			'post_title',
+			'post_name',
 			'post_author',
 			'post_date',
 			'post_date_gmt',
@@ -169,14 +167,12 @@ class WP_Post_Syncer{
 
 		$postarr = array(
 			'ID'			=> $id,
-			'post_title'    => $args['post_title'],
-			'post_type'		=> $this->post_type,
-			'post_status'   => ( isset( $args['post_status'] ) ? $args['post_status'] : 'publish' ),
-			'post_name'		=> ( isset( $args['post_name'] ) ? $args['post_name'] : $args['post_title'] )
+			'post_type'		=> $args['post_type'],
+			'post_status'   => ( isset( $args['post_status'] ) ? $args['post_status'] : 'publish' )
 		);
 
 		$extra_parameters = array(
-			'post_author', 'post_date', 'post_date_gmt', 'post_content', 'post_content_filtered', 'post_excerpt', 'comment_status', 'ping_status', 'post_password', 'to_ping', 'pinged', 'post_modified', 'post_modified_gmt', 'post_parent', 'menu_order', 'post_mime_type', 'guid', 'post_category', 'tax_input', 'meta_input'
+			'post_title', 'post_name', 'post_author', 'post_date', 'post_date_gmt', 'post_content', 'post_content_filtered', 'post_excerpt', 'comment_status', 'ping_status', 'post_password', 'to_ping', 'pinged', 'post_modified', 'post_modified_gmt', 'post_parent', 'menu_order', 'post_mime_type', 'guid', 'post_category', 'tax_input', 'meta_input'
 		);
 		foreach ( $extra_parameters as $parameter ) {
 			if( isset( $args[$parameter] ) ){
@@ -199,13 +195,13 @@ class WP_Post_Syncer{
 	 * @param    array $params Required. Options: force_delete
 	 *
 	 */
-	public function clean_up( $params = array() ){
+	public function clean_up( $post_type, $params = array() ){
 
-		if( !isset( $this->post_type ) ){
+		if( !isset( $post_type ) ){
 			return new WP_Error( 'Error', 'Undefined attribute \'post_type\'' );
 		}
 		$args = array(
-			'post_type' => $this->post_type,
+			'post_type' => $post_type,
 			'posts_per_page' => -1,
 			'post__not_in' => $this->synced_ids
 		);

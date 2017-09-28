@@ -6,7 +6,6 @@ class WP_Product_Syncer extends WP_Post_Syncer{
 	 */
 	function __construct( $debug = false ){
 
-		$this->post_type = 'product';
 		$this->debug = $debug;
 
 	}
@@ -19,7 +18,7 @@ class WP_Product_Syncer extends WP_Post_Syncer{
 	 * @return   mixed
 	 *
 	 */
-	protected function find_post( $qualifier ){
+	protected function find_post( $post_type, $qualifier ){
 
 		switch ( $qualifier['by'] ) {
 			case 'post_id':
@@ -27,7 +26,7 @@ class WP_Product_Syncer extends WP_Post_Syncer{
 			break;
 			case 'meta_value':
 			$args = array(
-				'post_type' => $this->post_type,
+				'post_type' => $post_type,
 				'post_status' => ( isset( $qualifier['posts_status'] ) ? $qualifier['posts_status'] : get_post_stati() ),
 				'posts_per_page' => 1,
 				'fields' => 'ids',
@@ -115,9 +114,6 @@ class WP_Product_Syncer extends WP_Post_Syncer{
 		// Set product type
 		if( isset( $wc_args['product_type'] ) ){
 			wp_set_object_terms( $product_id, $wc_args['product_type'], 'product_type' );
-		}
-		else{
-			wp_set_object_terms( $product_id, 'simple', 'product_type' );
 		}
 
 		// Variations
@@ -231,7 +227,7 @@ class WP_Product_Syncer extends WP_Post_Syncer{
 				'by' => $variation['qualifier']['by'],
 				'value' => $variation['qualifier']['value'],
 			);
-			$var_product = $this->find_post( $qualifier );
+			$var_product = $this->find_post( 'product_variation', $qualifier );
 
 			if( $var_product == 0 ){
 				$this->insert_product_variation( $product_id, $index, $variation, count( $variations ) );
