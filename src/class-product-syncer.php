@@ -1,6 +1,6 @@
 <?php
 
-class WP_Product_Syncer extends Wp_Post_Syncer{
+class WP_Product_Syncer extends WP_Post_Syncer{
 
 	/**
 	 */
