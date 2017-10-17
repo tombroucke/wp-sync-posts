@@ -150,7 +150,7 @@ class WP_Post_Syncer{
 	 */
 	protected function manipulate( $post_id, $args ){
 
-		return $postid;
+		return $post_id;
 
 	}
 
