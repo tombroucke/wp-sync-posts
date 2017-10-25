@@ -203,7 +203,7 @@ class WP_Post_Syncer{
 		$args = array(
 			'post_type' => $post_type,
 			'posts_per_page' => -1,
-			'post__not_in' => $this->synced_ids
+			'post__not_in' => $this->synced_ids,
 			'post_status' => array('publish', 'pending', 'draft', 'auto-draft', 'future', 'private', 'inherit', 'trash')
 		);
 		$delete_posts = get_posts( $args );
