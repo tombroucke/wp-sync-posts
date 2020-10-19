@@ -10,7 +10,9 @@
     ],
     "require": {},
     "autoload": {
-        "classmap": ["src"]
+        "psr-4": {
+            "Otomaties\\WP_Post_Sync\\": "src/"
+        }
     },
     "version": "1.0.0"
 }

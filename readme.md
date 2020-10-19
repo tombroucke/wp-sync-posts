@@ -1,125 +1,166 @@
 # Sync posts
 ```php
-function post_syncing(){
+use \Otomaties\WP_Post_Sync\Post_Sync;
 
-	$posts = array(
-		array(
-			'post_title' => 'test',
-			'qualifier' => array(
-				'by' => 'meta_value',
-				'key' => 'unique_id',
-				'value' => '1',
-				'post_status' => array( 'publish' )
+$syncer = new Post_Sync();
+$post_type = 'post';
+
+$response = wp_remote_get( 'https://example.com' );
+$external_posts = wp_remote_retrieve_body( $response );
+
+foreach ( $external_posts as $external_post ) {
+
+	$new_post = array(
+		'post_title' => $external_post->getTitle(),
+		'post_content' => $external_post->getTitle(),
+		'post_date' => gmdate( 'Y-m-d H:i:s', $external_post->getCreatedTime() ),
+		'post_status' => 'publish',
+		'post_type' => $external_post_type,
+		'meta_input' => array(
+			'external_id' => $external_post->getId(),
+			'other_meta' => $external_post->otherMeta(),
+		),
+		'media' => array(
+			array(
+				'key'           => false,
+				'featured'      => true,
+				'url'           => $external_post->getThumbnail()->url(),
+				'date_modified' => gmdate( 'Y-m-d H:i:s', $external_post->getCreatedTime() ),
 			),
-			'meta_input' => array(
-				'unique_id' => '1'
-			)	
-		)
+		),
 	);
 
-	$syncer = new WP_Post_Syncer();
-	foreach ( $posts as $post ) {
+	$find = array(
+		'by'    => 'meta_value',
+		'key'   => 'external_id',
+		'value' => $external_post->getId(),
+	);
 
-		$syncer->sync_post( $post );
-
-	}
-	$syncer->clean_up();
+	$syncer->sync( $new_post, $find );
 
 }
+$syncer->clean_up( $post_type );
+die();
 ```
+		
 # Sync products
 ```php
-function product_syncing(){
-	
-	$posts = array(
-		array(
-			'qualifier' => array(
-				'by' => 'sku',
-				'value' => 'sku1'
+use \Otomaties\WP_Post_Sync\Product_Sync;
+
+$external_posts = array(
+	array(
+		'post_title' => 'Guitar',
+		'media' => array(
+			array(
+				'key'           => false,
+				'featured'      => true,
+				'url'           => 'https://via.placeholder.com/800x600.png?text=Synced+media',
 			),
-			'post_title' => 'test3as',
-			'woocommerce' => array(
-				'_sku' => 'sku1',
-				'_sale_price' => '',
-				'product_cat' => array( 16,17 ),
-				'product_type' => 'variable',
-				'available_attributes' => array( 'color', 'size', 'weight' ),
-				'variations' => array(
-					array(
+		),
+		'woocommerce' => array(
+			'_sku' => 'sku1',
+			'_sale_price' => '',
+			'product_cat' => array( 16, 17 ),
+			'product_type' => 'variable',
+			'available_attributes' => array( 'color', 'size' ),
+			'variations' => array(
+				array(
+					'woocommerce' => array(
 						'attributes' => array(
 							'color' => 'blue',
 							'size' => '10',
-							'weight' => '20g'
 						),
 						'_regular_price' => '13',
-						'_sku' => 'varsku1',
-						'qualifier' => array(
-							'by' => 'sku',
-							'value' => 'varsku1'
-						),
-						'_stock' => '8'
+						'_sku' => 'var_sku1',
+						'_stock' => '8',
 					),
-					array(
+					'media' => array(
+						array(
+							'key'           => false,
+							'featured'      => true,
+							'url'           => 'https://via.placeholder.com/800x600.png?text=Variation+1',
+						),
+					),
+				),
+				array(
+					'woocommerce' => array(
 						'attributes' => array(
 							'color' => 'blue',
 							'size' => '11',
-							'weight' => '20g'
 						),
 						'_regular_price' => '14',
-						'_sku' => 'varsku2',
-						'qualifier' => array(
-							'by' => 'sku',
-							'value' => 'varsku2'
-						),
-						'_stock' => '8'
+						'_sku' => 'var_sku2',
+						'_stock' => '8',
 					),
-					array(
+					'media' => array(
+						array(
+							'key'           => false,
+							'featured'      => true,
+							'url'           => 'https://via.placeholder.com/800x600.png?text=Variation+2',
+						),
+					),
+				),
+				array(
+					'woocommerce' => array(
 						'attributes' => array(
 							'color' => 'blue',
 							'size' => '12',
-							'weight' => '20g'
 						),
 						'_regular_price' => '25',
-						'_sku' => 'varsku3',
-						'qualifier' => array(
-							'by' => 'sku',
-							'value' => 'varsk3'
-						),
-						'_stock' => '8'
+						'_sku' => 'var_sku3',
+						'_stock' => '8',
 					),
-					array(
+					'media' => array(
+						array(
+							'key'           => false,
+							'featured'      => true,
+							'url'           => 'https://via.placeholder.com/800x600.png?text=Variation+3',
+						),
+					),
+				),
+				array(
+					'woocommerce' => array(
 						'attributes' => array(
 							'color' => 'blellow',
 							'size' => '12',
-							'weight' => '40g'
 						),
 						'_regular_price' => '26',
-						'_sku' =>  'varsku4',
-						'qualifier' => array(
-							'by' => 'sku',
-							'value' =>  'varsku4'
-						),
+						'_sku' => 'var_sku4',
 						'_stock' => '8',
 						'_weight' => '0.250',
 						'_length' => '50',
 						'_width' => '10',
 						'_height' => '20',
 						'_variation_description' => 'Description',
-						'_backorders' => 'no'
+						'_backorders' => 'no',
 					),
-				)
-			)
+					'media' => array(
+						array(
+							'key'           => false,
+							'featured'      => true,
+							'url'           => 'https://via.placeholder.com/800x600.png?text=Variation+4',
+						),
+					),
+				),
+			),
+		),
+	),
+);
 
-		)
+$syncer = new Product_Sync();
+foreach ( $external_posts as $external_post ) {
+
+	$find_product = array(
+		'by' => 'sku',
+		'value' => $external_post['woocommerce']['_sku'],
 	);
 
-	$syncer = new WP_Product_Syncer();
-	foreach ( $posts as $post ) {
-
-		$syncer->sync_post( $post );
-
-	}
-	$syncer->clean_up( array( 'force_delete' => true ) );
+	$find_variation = array(
+		'by' => 'sku',
+	);
+	$syncer->sync( $external_post, $find_product, $find_variation );
 
 }
+$syncer->clean_up( 'product' );
+die();
 ```
