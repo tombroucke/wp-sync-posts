@@ -75,7 +75,7 @@ class Media_Sync {
 			'meta_query'     => array(
 				array(
 					'key'    => 'original_url',
-					'value'  => $this->url,
+					'value'  => strtok($this->url, '?'),
 				),
 				array(
 					'key'    => 'original_date_modified',
@@ -146,7 +146,7 @@ class Media_Sync {
 				wp_update_attachment_metadata( $attach_id, $attach_data );
 
 				$required_meta = array(
-					'original_url' => $this->url,
+					'original_url' => strtok( $this->url, '?'),
 					'original_date_modified' => $this->date_modified,
 				);
 
