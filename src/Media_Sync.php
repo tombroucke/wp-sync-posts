@@ -96,7 +96,7 @@ class Media_Sync {
 			'meta_query'     => array(
 				array(
 					'key'    => 'original_url',
-					'value'  => $this->url,
+					'value'  => strtok($this->url, '?'),
 				),
 			),
 		);
