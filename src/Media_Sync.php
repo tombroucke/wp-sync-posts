@@ -152,7 +152,7 @@ class Media_Sync {
 
 				$meta = array_merge( $this->meta, $required_meta );
 
-				foreach ( $required_meta as $key => $value ) {
+				foreach ( $meta as $key => $value ) {
 					add_post_meta( $attach_id, $key, $value );
 				}
 
