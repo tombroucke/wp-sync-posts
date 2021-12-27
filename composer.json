@@ -11,8 +11,8 @@
     "require": {},
     "autoload": {
         "psr-4": {
-            "Otomaties\\WP_Post_Sync\\": "src/"
+            "Otomaties\\WpSyncPosts\\": "src/"
         }
     },
-    "version": "1.0.1"
+    "version": "2.0.0"
 }

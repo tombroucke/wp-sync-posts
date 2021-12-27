@@ -1,166 +1,122 @@
 # Sync posts
 ```php
-use \Otomaties\WP_Post_Sync\Post_Sync;
+use \Otomaties\WpSyncPosts\Syncer;
 
-$syncer = new Post_Sync();
-$post_type = 'post';
+$syncer = new Syncer('post');
 
-$response = wp_remote_get( 'https://example.com' );
-$external_posts = wp_remote_retrieve_body( $response );
+$response = wp_remote_get('https://example.com');
+$externalPosts = wp_remote_retrieve_body($response);
 
-foreach ( $external_posts as $external_post ) {
+foreach ($externalPosts as $externalPost) {
+    $args = [
+        'post_title' => $externalPost->title(),
+        'post_content' => $externalPost->content(),
+        'post_date' => gmdate('Y-m-d H:i:s', $externalPost->createdTime()),
+        'post_status' => 'publish',
+        'meta_input' => [
+            'external_id' => $externalPost->id(),
+            'other_meta' => $externalPost->otherMeta(),
+        ),
+        'media' => [
+            [
+                'key'           => false,
+                'featured'      => true,
+                'url'           => $externalPost->thumbnail()->url(),
+                'date_modified' => gmdate('Y-m-d H:i:s', $externalPost->createdTime()),
+            ],
+        ],
+    ];
 
-	$new_post = array(
-		'post_title' => $external_post->getTitle(),
-		'post_content' => $external_post->getTitle(),
-		'post_date' => gmdate( 'Y-m-d H:i:s', $external_post->getCreatedTime() ),
-		'post_status' => 'publish',
-		'post_type' => $external_post_type,
-		'meta_input' => array(
-			'external_id' => $external_post->getId(),
-			'other_meta' => $external_post->otherMeta(),
-		),
-		'media' => array(
-			array(
-				'key'           => false,
-				'featured'      => true,
-				'url'           => $external_post->getThumbnail()->url(),
-				'date_modified' => gmdate( 'Y-m-d H:i:s', $external_post->getCreatedTime() ),
-			),
-		),
-	);
+    $existingPostQuery = [
+        'by'    => 'meta_value', // id, meta_value
+        'key'   => 'external_id', // Only if 'by' => 'meta_value'
+        'value' => $externalPost->id(), // Unique value to identify this post
+    ];
 
-	$find = array(
-		'by'    => 'meta_value',
-		'key'   => 'external_id',
-		'value' => $external_post->getId(),
-	);
-
-	$syncer->sync( $new_post, $find );
-
+    $syncer->addPost($args, $existingPostQuery);
 }
-$syncer->clean_up( $post_type );
-die();
+
+$syncer->execute();
 ```
 		
 # Sync products
 ```php
-use \Otomaties\WP_Post_Sync\Product_Sync;
+use \Otomaties\WpSyncPosts\Syncer;
 
-$external_posts = array(
-	array(
-		'post_title' => 'Guitar',
-		'media' => array(
-			array(
+$syncer = new Syncer('product');
+
+$response = wp_remote_get('https://example.com');
+$externalPosts = wp_remote_retrieve_body($response);
+
+foreach ($externalPosts as $externalPost) {
+    $args = [
+		'post_title' => $externalPost->title(),
+		'media' => [
+			[
 				'key'           => false,
 				'featured'      => true,
-				'url'           => 'https://via.placeholder.com/800x600.png?text=Synced+media',
-			),
+				'url'           => $externalPost->thumbnail()->url(), // String e.g. 'https://via.placeholder.com/800x600.png?text=Variation+4'
+                'date_modified' => gmdate('Y-m-d H:i:s', $externalPost->thumbnail()->createdTime()),
+			],
+		],
+		'meta_input' => array(
+			'external_id' => $externalPost->id(),
 		),
-		'woocommerce' => array(
-			'_sku' => 'sku1',
-			'_sale_price' => '',
-			'product_cat' => array( 16, 17 ),
-			'product_type' => 'variable',
-			'available_attributes' => array( 'color', 'size' ),
-			'variations' => array(
-				array(
-					'woocommerce' => array(
-						'attributes' => array(
-							'color' => 'blue',
-							'size' => '10',
-						),
-						'_regular_price' => '13',
-						'_sku' => 'var_sku1',
-						'_stock' => '8',
-					),
-					'media' => array(
-						array(
-							'key'           => false,
-							'featured'      => true,
-							'url'           => 'https://via.placeholder.com/800x600.png?text=Variation+1',
-						),
-					),
-				),
-				array(
-					'woocommerce' => array(
-						'attributes' => array(
-							'color' => 'blue',
-							'size' => '11',
-						),
-						'_regular_price' => '14',
-						'_sku' => 'var_sku2',
-						'_stock' => '8',
-					),
-					'media' => array(
-						array(
-							'key'           => false,
-							'featured'      => true,
-							'url'           => 'https://via.placeholder.com/800x600.png?text=Variation+2',
-						),
-					),
-				),
-				array(
-					'woocommerce' => array(
-						'attributes' => array(
-							'color' => 'blue',
-							'size' => '12',
-						),
-						'_regular_price' => '25',
-						'_sku' => 'var_sku3',
-						'_stock' => '8',
-					),
-					'media' => array(
-						array(
-							'key'           => false,
-							'featured'      => true,
-							'url'           => 'https://via.placeholder.com/800x600.png?text=Variation+3',
-						),
-					),
-				),
-				array(
-					'woocommerce' => array(
-						'attributes' => array(
-							'color' => 'blellow',
-							'size' => '12',
-						),
-						'_regular_price' => '26',
-						'_sku' => 'var_sku4',
-						'_stock' => '8',
-						'_weight' => '0.250',
-						'_length' => '50',
-						'_width' => '10',
-						'_height' => '20',
-						'_variation_description' => 'Description',
-						'_backorders' => 'no',
-					),
-					'media' => array(
-						array(
-							'key'           => false,
-							'featured'      => true,
-							'url'           => 'https://via.placeholder.com/800x600.png?text=Variation+4',
-						),
-					),
-				),
-			),
+		'tax_input' => array(
+			'product_cat' => [16, 57],
 		),
-	),
-);
+		'woocommerce' => [
+			'product_type' => $externalPost->productType(), // string: 'variable', 'simple', ...
+			'available_attributes' => $externalPost->availableAttributes(), // Array of attributes e.g. ['color', 'size']
+			'variations' => [], // Array of available variations
+			'meta_input' => array(
+				'_sku' => $externalPost->sku(),
+			),
+		],
+	];
 
-$syncer = new Product_Sync();
-foreach ( $external_posts as $external_post ) {
+	foreach($externalPost->variations() as $variation) {
+		$args['variations'] = [
+			'woocommerce' => [
+				'attributes' => [
+					'color' => $variation->attribute('color'), // string
+					'size' => $variation->attribute('size'), // string
+				],
+				'meta_input' => [
+					'_regular_price' => $variation->price(), // float
+					'_sku' => $variation->sku(), // string
+					'_stock' => $variation->stockQuantity(), // int
+					'_weight' => $variation->weight(), // float
+					'_length' => $variation->length(), // float
+					'_width' => $variation->width(), // float
+					'_height' => $variation->height(), // float
+					'_variation_description' => $variation->description(),
+					'_backorders' => $variation->backorders(), // 'yes' or 'no'
+				]
+			],
+			'media' => [
+				[
+					'key'           => false,
+					'featured'      => true,
+					'url'           => $variation->thumbnail()->url(), // String e.g. 'https://via.placeholder.com/800x600.png?text=Variation+4'
+                	'date_modified' => gmdate('Y-m-d H:i:s', $variation->thumbnail()->createdTime()),
+				],
+			],
+		],
+	}
 
-	$find_product = array(
+    $existingPostQuery = [
+        'by'    => 'meta_value', // id, meta_value, sku
+        'key'   => 'external_id', // Only if 'by' => 'meta_value'
+        'value' => $externalPost->id(), // Unique value to identify this post
+    ];
+
+	$existingVariationQuery = [
 		'by' => 'sku',
-		'value' => $external_post['woocommerce']['_sku'],
-	);
+	];
 
-	$find_variation = array(
-		'by' => 'sku',
-	);
-	$syncer->sync( $external_post, $find_product, $find_variation );
-
+    $syncer->addPost($args, $existingPostQuery, $existingVariationQuery);
 }
-$syncer->clean_up( 'product' );
-die();
+
+$syncer->execute();
 ```
