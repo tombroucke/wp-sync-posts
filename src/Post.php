@@ -193,19 +193,19 @@ class Post
 
         switch ($findBy) {
             case 'id':
-                \WP_CLI::log(sprintf('Searching for post with ID #%s', $value));
+                Logger::log(sprintf('Searching for post with ID #%s', $value));
                 $postId = get_post_status($value) ? $value : 0;
                 if ($postId > 0) {
-                    \WP_CLI::log(sprintf('Found post: #%s', $postId));
+                    Logger::log(sprintf('Found post: #%s', $postId));
                 } else {
-                    \WP_CLI::log(sprintf('No post found'));
+                    Logger::log(sprintf('No post found'));
                 }
                 return $postId;
                 break;
             case 'meta_value':
                 $postId = 0;
                 $key = $query['key'];
-                \WP_CLI::log(sprintf('Searching for post with meta key %s %s %s', $key, $compare, $value));
+                Logger::log(sprintf('Searching for post with meta key %s %s %s', $key, $compare, $value));
                 $args = array(
                     'post_type'         => $postType,
                     'post_status'       => get_post_stati(),
@@ -223,9 +223,9 @@ class Post
                 $postIds = get_posts($args);
                 if (isset($postIds[0])) {
                     $postId = $postIds[0];
-                    \WP_CLI::log(sprintf('Found post: #%s', $postId));
+                    Logger::log(sprintf('Found post: #%s', $postId));
                 } else {
-                    \WP_CLI::log(sprintf('Post not found'));
+                    Logger::log(sprintf('Post not found'));
                 }
                 return $postId;
                 break;

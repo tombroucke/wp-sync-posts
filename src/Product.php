@@ -78,7 +78,7 @@ class Product extends Post
         // Save needs to be triggered to clear data store cache
         $product = wc_get_product($postId);
         $product->save();
-        \WP_CLI::log('Product save triggered');
+        Logger::log('Product save triggered');
 
         return $postId;
     }
@@ -138,9 +138,9 @@ class Product extends Post
             $postIds = get_posts($args);
             if (isset($postIds[0])) {
                 $postId = $postIds[0];
-                \WP_CLI::log(sprintf('Found product: #%s', $postId));
+                Logger::log(sprintf('Found product: #%s', $postId));
             } else {
-                \WP_CLI::log(sprintf('Product not found'));
+                Logger::log(sprintf('Product not found'));
             }
             return $postId;
         }
@@ -349,7 +349,7 @@ class Product extends Post
         );
         $deletePosts = get_posts($args);
         foreach ($deletePosts as $deletePost) {
-            \WP_CLI::log(sprintf('Deleting variation %s', $deletePost->ID));
+            Logger::log(sprintf('Deleting variation %s', $deletePost->ID));
             wp_delete_post($deletePost->ID, true);
         }
     }
@@ -378,7 +378,7 @@ class Product extends Post
         );
 
         $variationId = wp_insert_post($variation_post);
-        \WP_CLI::log(sprintf('Inserted variation %s', $variationId));
+        Logger::log(sprintf('Inserted variation %s', $variationId));
 
         foreach ($variation['woocommerce']['attributes'] as $attribute => $value) {
             $attribute_term = get_term_by('name', $value, 'pa_' . $attribute);
@@ -400,7 +400,7 @@ class Product extends Post
      */
     private function updateProductVariation($variationId, $variation)
     {
-        \WP_CLI::log(sprintf('Updating variation %s', $variationId));
+        Logger::log(sprintf('Updating variation %s', $variationId));
         foreach ($variation['woocommerce']['attributes'] as $attr => $value) {
             update_post_meta($variationId, 'attribute_pa_' . $attr, $value);
         }

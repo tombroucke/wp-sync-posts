@@ -68,7 +68,7 @@ class Media
     {
 
         if (!$this->url || $this->url == '') {
-            \WP_CLI::log(sprintf('No attachment url given for post %s', $postId));
+            Logger::log(sprintf('No attachment url given for post %s', $postId));
             return null;
         }
 
@@ -95,13 +95,13 @@ class Media
         
         $existingMedia = get_posts($args);
 
-        \WP_CLI::log(sprintf('Searching for existing attachment with original_url %s and original_modified_date %s', $url, $this->dateModified));
+        Logger::log(sprintf('Searching for existing attachment with original_url %s and original_modified_date %s', $url, $this->dateModified));
         if (! empty($existingMedia)) {
             $attachmentId = $existingMedia[0]->ID;
-            \WP_CLI::log(sprintf('Found attachment with ID #%s', $attachmentId));
+            Logger::log(sprintf('Found attachment with ID #%s', $attachmentId));
             return $attachmentId;
         } else {
-            \WP_CLI::log('No existing attachment found');
+            Logger::log('No existing attachment found');
         }
 
         // Check if file is modified.
@@ -120,20 +120,20 @@ class Media
         $existingMedia = get_posts($args);
         if (!empty($existingMedia)) {
             $attachmentId = $existingMedia[0]->ID;
-            \WP_CLI::log(sprintf('Found modified attachment with ID #%s. Deleting ...', $attachmentId));
+            Logger::log(sprintf('Found modified attachment with ID #%s. Deleting ...', $attachmentId));
             wp_delete_attachment($attachmentId, true);
         } else {
-            \WP_CLI::log('No modified attachment found');
+            Logger::log('No modified attachment found');
         }
 
-        \WP_CLI::log('Creating new attachment');
+        Logger::log('Creating new attachment');
         // Download file to temp dir.
         $timeOutInSeconds = 20;
         $tempFile = download_url($this->url, $timeOutInSeconds);
 
         if (is_wp_error($tempFile)) {
-            \WP_CLI::log('An error occured while downloading the attachment');
-            \WP_CLI::log(print_r($tempFile, 1));
+            Logger::log('An error occured while downloading the attachment');
+            Logger::log(print_r($tempFile, 1));
             return null;
         }
 
@@ -153,8 +153,8 @@ class Media
         $result = wp_handle_sideload($file, $overrides);
 
         if (!empty($result['error'])) {
-            \WP_CLI::log('An error occured while importing the attachment');
-            \WP_CLI::log(print_r($result, 1));
+            Logger::log('An error occured while importing the attachment');
+            Logger::log(print_r($result, 1));
             return null;
         }
 
@@ -184,7 +184,7 @@ class Media
             add_post_meta($attachId, $key, $value);
         }
 
-        \WP_CLI::log(sprintf('New attachment created with ID %s', $attachId));
+        Logger::log(sprintf('New attachment created with ID %s', $attachId));
         return $attachId;
     }
 }
