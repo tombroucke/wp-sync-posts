@@ -64,13 +64,23 @@ class Syncer
     }
 
     /**
+     * Get posts to sync
+     *
+     * @return array
+     */
+    public function posts() : array
+    {
+        return $this->posts;
+    }
+
+    /**
      * Execute sync & clean up afterwards
      *
      * @param boolean $cleanUp
      * @param boolean $forceDelete
-     * @return void
+     * @return array
      */
-    public function execute(bool $cleanUp = true, bool $forceDelete = true) : void
+    public function execute(bool $cleanUp = true, bool $forceDelete = true) : array
     {
         foreach ($this->posts as $post) {
             $post->save();
@@ -92,5 +102,7 @@ class Syncer
                 wp_delete_post($delete_post->ID, $forceDelete);
             }
         }
+
+        return $this->posts();
     }
 }
