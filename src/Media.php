@@ -1,4 +1,4 @@
-<?php //phpcs:ignore
+<?php
 namespace Otomaties\WpSyncPosts;
 
 class Media
@@ -31,6 +31,13 @@ class Media
      */
     private $meta = [];
 
+    /**
+     * The filename to use for the media
+     *
+     * @var string
+     */
+    private $filename = null;
+
     private $removeQueryString = true;
 
     /**
@@ -40,9 +47,9 @@ class Media
      */
     public function __construct(array $media)
     {
-
         $default_media = array(
             'url'                   => '',
+            'filename'              => null,
             'date_modified'         => 'unchanged',
             'title'                 => strtok(pathinfo($media['url'], PATHINFO_FILENAME), '?'),
             'meta'                  => [],
@@ -52,6 +59,7 @@ class Media
         $media = wp_parse_args($media, $default_media);
 
         $this->url                  = $media['url'];
+        $this->filename             = $media['filename'];
         $this->dateModified         = $media['date_modified'];
         $this->title                = $media['title'];
         $this->meta                 = $media['meta'];
@@ -138,8 +146,8 @@ class Media
         }
 
         $file = array(
-            'name'     => strtok(basename($this->url), '?'), // image.png.
-            'type'     => 'image/png',
+            'name'     => $this->filename ?? strtok(basename($this->url), '?'),
+            'type'     => wp_check_filetype($tempFile),
             'tmp_name' => $tempFile,
             'error'    => 0,
             'size'     => filesize($tempFile),
