@@ -252,6 +252,17 @@ class Post
 
         $this->setId($id);
 
+        $mediaGroups = ['synced_images'];
+        foreach ($this->media as $item) {
+            if (isset($item['group']) && !in_array($item['group'], $mediaGroups)) {
+                $mediaGroups[] = $item['group'];
+            }
+        }
+        $existingMedia = [];
+        foreach ($mediaGroups as $groupName) {
+            $existingMedia[$groupName] = get_post_meta($this->id(), $groupName, true);
+        }
+
         // Import media.
         if ($this->media) {
             $attachmentIds = [
@@ -275,10 +286,19 @@ class Post
                     set_post_thumbnail($this->id(), $attachmentId);
                 }
             }
-            
+
             foreach ($attachmentIds as $key => $ids) {
                 update_post_meta($this->id(), $key, $ids);
             }
+
+            // TODO: Remove old media. doesnt work with wpml
+            // foreach ($existingMedia as $groupName => $ids) {
+            //     foreach ($ids as $id) {
+            //         if (!in_array($id, $attachmentIds[$groupName])) {
+            //             wp_delete_attachment($id, true);
+            //         }
+            //     }
+            // }
         }
 
         /**

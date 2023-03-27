@@ -13,6 +13,5 @@
         "psr-4": {
             "Otomaties\\WpSyncPosts\\": "src/"
         }
-    },
-    "version": "2.0.0"
+    }
 }
