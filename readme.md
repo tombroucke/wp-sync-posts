@@ -23,6 +23,7 @@ foreach ($externalPosts as $externalPost) {
                 'featured'      => true,
                 'url'           => $externalPost->thumbnail()->url(),
                 'date_modified' => gmdate('Y-m-d H:i:s', $externalPost->createdTime()),
+				'group'			=> 'synced_images' // image IDS will be stored in the synced_image meta field
             ],
         ],
     ];

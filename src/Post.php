@@ -254,6 +254,9 @@ class Post
 
         // Import media.
         if ($this->media) {
+            $attachmentIds = [
+                'synced_images' => [],
+            ];
             foreach ($this->media as $key => $item) {
                 $media = new Media($item);
                 $attachmentId = $media->importAndAttachToPost($this->id());
@@ -262,9 +265,19 @@ class Post
                     update_post_meta($this->id(), $item['key'], $attachmentId);
                 }
 
+                if (isset($item['group'])) {
+                    $attachmentIds[$item['group']][] = $attachmentId;
+                } else {
+                    $attachmentIds['synced_images'][] = $attachmentId;
+                }
+
                 if (isset($item['featured']) && $item['featured']) {
                     set_post_thumbnail($this->id(), $attachmentId);
                 }
+            }
+            
+            foreach ($attachmentIds as $key => $ids) {
+                update_post_meta($this->id(), $key, $ids);
             }
         }
 
