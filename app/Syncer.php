@@ -41,8 +41,6 @@ class Syncer
      * Add post to posts to sync
      *
      * @param array $args
-     * @param array $existingPostQuery
-     * @return void
      */
     public function addPost(...$args)
     {
@@ -54,8 +52,6 @@ class Syncer
      * Add post to posts to sync
      *
      * @param array $args
-     * @param array $existingPostQuery
-     * @return void
      */
     public function addProduct(...$args)
     {

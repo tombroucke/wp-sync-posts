@@ -46,13 +46,20 @@ class Product extends Post
         'variations' => [],
     ];
 
-    public function __construct(string $postType, array $args, array $existingPostQuery, array $existingVariationQuery = null)
-    {
+    public function __construct(
+        string $postType,
+        array $args,
+        array $existingPostQuery,
+        array $existingVariationQuery = null
+    ) {
         $this->existingVariationQuery = $existingVariationQuery;
         $this->availableArgs[] = 'woocommerce';
 
         $this->woocommerceArgs = wp_parse_args($args['woocommerce'], $this->defaultWoocommerceArgs);
-        $this->woocommerceArgs['meta_input'] = $this->removeUnsupportedArgs($this->woocommerceArgs['meta_input'], $this->availableWoocommerceMeta);
+        $this->woocommerceArgs['meta_input'] = $this->removeUnsupportedArgs(
+            $this->woocommerceArgs['meta_input'],
+            $this->availableWoocommerceMeta
+        );
 
         $this->checkRequiredVariationParamaters();
 
@@ -66,7 +73,7 @@ class Product extends Post
             'existingVariationQuery' => (bool)$this->existingVariationQuery,
         ];
         if (array_sum($requiredVariationParameters) != 0 && array_sum($requiredVariationParameters) != 2) {
-            throw new \Exception('Not all required variation parameters {$args[\'woocommerce\'][\'available_attributes\'], $existingVariationQuery} are set. Add them all or remove them all');
+            throw new \Exception('Not all required variation parameters {$args[\'woocommerce\'][\'available_attributes\'], $existingVariationQuery} are set. Add them all or remove them all'); // phpcs:ignore Generic.Files.LineLength.TooLong
         }
     }
 
@@ -91,8 +98,14 @@ class Product extends Post
         }
     
         // Sync stock.
-        $stockAmount = isset($this->woocommerceArgs['meta_input']['_stock']) ? $this->woocommerceArgs['meta_input']['_stock'] : null;
-        $backorders = isset($this->woocommerceArgs['meta_input']['_backorders']) ? $this->woocommerceArgs['meta_input']['_backorders'] : null;
+        $stockAmount = isset($this->woocommerceArgs['meta_input']['_stock'])
+            ? $this->woocommerceArgs['meta_input']['_stock']
+            : null;
+
+        $backorders = isset($this->woocommerceArgs['meta_input']['_backorders'])
+            ? $this->woocommerceArgs['meta_input']['_backorders']
+            : null;
+
         $this->syncProductStock($productId, $stockAmount, $backorders);
         
         // Set product type.
@@ -103,7 +116,11 @@ class Product extends Post
         // Variations.
         if (!empty($this->woocommerceArgs['available_attributes'])) {
             // Create attributes.
-            $this->insertProductAttributes($productId, $this->woocommerceArgs['available_attributes'], $this->woocommerceArgs['variations']);
+            $this->insertProductAttributes(
+                $productId,
+                $this->woocommerceArgs['available_attributes'],
+                $this->woocommerceArgs['variations']
+            );
             
             if (isset($this->woocommerceArgs['product_type']) && $this->woocommerceArgs['product_type'] == 'variable') {
                 // Create variations.
@@ -253,10 +270,13 @@ class Product extends Post
 
         if (empty($attribute['attribute_name']) || empty($attribute['attribute_label'])) {
             return new \WP_Error('error', __('Please, provide an attribute name and slug.', 'woocommerce'));
-        } elseif (( $validAttributeName = $this->validAttributeName($attribute['attribute_name']) ) && is_wp_error($validAttributeName)) {
+        } elseif (( $validAttributeName = $this->validAttributeName($attribute['attribute_name']) ) && is_wp_error($validAttributeName)) { // phpcs:ignore Generic.Files.LineLength.TooLong
             return $validAttributeName;
         } elseif (taxonomy_exists(wc_attribute_taxonomy_name($attribute['attribute_name']))) {
-            return new \WP_Error('error', sprintf(__('Slug "%s" is already in use. Change it, please.', 'woocommerce'), sanitize_title($attribute['attribute_name'])));
+            return new \WP_Error('error', sprintf(
+                __('Slug "%s" is already in use. Change it, please.', 'woocommerce'),
+                sanitize_title($attribute['attribute_name'])
+            ));
         }
 
         $wpdb->insert($wpdb->prefix . 'woocommerce_attribute_taxonomies', $attribute);
@@ -278,9 +298,15 @@ class Product extends Post
     private function validAttributeName($attributeName)
     {
         if (strlen($attributeName) >= 28) {
-            return new \WP_Error('error', sprintf(__('Slug "%s" is too long (28 characters max). Shorten it, please.', 'woocommerce'), sanitize_title($attributeName)));
+            return new \WP_Error('error', sprintf(
+                __('Slug "%s" is too long (28 characters max). Shorten it, please.', 'woocommerce'),
+                sanitize_title($attributeName)
+            ));
         } elseif (wc_check_if_attribute_name_is_reserved($attributeName)) {
-            return new \WP_Error('error', sprintf(__('Slug "%s" is not allowed because it is a reserved term. Change it, please.', 'woocommerce'), sanitize_title($attributeName)));
+            return new \WP_Error('error', sprintf(
+                __('Slug "%s" is not allowed because it is a reserved term. Change it, please.', 'woocommerce'),
+                sanitize_title($attributeName)
+            ));
         }
 
         return true;
@@ -386,7 +412,11 @@ class Product extends Post
         }
 
         $this->syncVariationMeta($variationId, $variation);
-        $this->syncProductStock($variationId, ( isset($variation['woocommerce']['_stock']) ? $variation['woocommerce']['_stock'] : null ), ( isset($variation['woocommerce']['_backorders']) ? $variation['woocommerce']['_backorders'] : null ));
+        $this->syncProductStock(
+            $variationId,
+            ( isset($variation['woocommerce']['_stock']) ? $variation['woocommerce']['_stock'] : null ),
+            ( isset($variation['woocommerce']['_backorders']) ? $variation['woocommerce']['_backorders'] : null )
+        );
 
         return $variationId;
     }
@@ -405,7 +435,11 @@ class Product extends Post
             update_post_meta($variationId, 'attribute_pa_' . $attr, $value);
         }
         $this->syncVariationMeta($variationId, $variation);
-        $this->syncProductStock($variationId, ( isset($variation['woocommerce']['_stock']) ? $variation['woocommerce']['_stock'] : null ), ( isset($variation['woocommerce']['_backorders']) ? $variation['woocommerce']['_backorders'] : null ));
+        $this->syncProductStock(
+            $variationId,
+            ( isset($variation['woocommerce']['_stock']) ? $variation['woocommerce']['_stock'] : null ),
+            ( isset($variation['woocommerce']['_backorders']) ? $variation['woocommerce']['_backorders'] : null )
+        );
 
         return $variationId;
     }
@@ -419,7 +453,10 @@ class Product extends Post
      */
     private function syncVariationMeta($variationId, $variation)
     {
-        $variationMeta = $this->removeUnsupportedArgs($variation['woocommerce']['meta_input'], $this->availableWoocommerceMeta);
+        $variationMeta = $this->removeUnsupportedArgs(
+            $variation['woocommerce']['meta_input'],
+            $this->availableWoocommerceMeta
+        );
         foreach ($variationMeta as $key => $value) {
             update_post_meta($variationId, $key, $value);
         }

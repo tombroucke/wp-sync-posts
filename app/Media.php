@@ -1,6 +1,8 @@
 <?php
 namespace Otomaties\WpSyncPosts;
 
+use League\MimeTypeDetection\FinfoMimeTypeDetector;
+
 class Media
 {
     /**
@@ -66,6 +68,111 @@ class Media
         $this->removeQueryString    = $media['remove_querystring'];
     }
 
+    private function fileType($file)
+    {
+        $fileType = wp_check_filetype($file);
+
+        $fileExtAndTypeAreFalse = array_reduce($fileType, function ($carry, $item) {
+            return $carry && ($item === false);
+        }, true);
+
+        if ($fileExtAndTypeAreFalse) {
+            $mimeTypeDetector = new FinfoMimeTypeDetector();
+            $mimeType = $mimeTypeDetector->detectMimeTypeFromFile($file);
+            switch ($mimeType) {
+                case 'image/jpeg':
+                    $fileType = array(
+                        'ext' => 'jpg',
+                        'type' => $mimeType,
+                    );
+                    break;
+                case 'image/png':
+                    $fileType = array(
+                        'ext' => 'png',
+                        'type' => $mimeType,
+                    );
+                    break;
+                case 'image/gif':
+                    $fileType = array(
+                        'ext' => 'gif',
+                        'type' => $mimeType,
+                    );
+                    break;
+                case 'image/bmp':
+                    $fileType = array(
+                        'ext' => 'bmp',
+                        'type' => $mimeType,
+                    );
+                    break;
+                case 'image/tiff':
+                    $fileType = array(
+                        'ext' => 'tiff',
+                        'type' => $mimeType,
+                    );
+                    break;
+                case 'application/pdf':
+                    $fileType = array(
+                        'ext' => 'pdf',
+                        'type' => $mimeType,
+                    );
+                    break;
+                case 'application/msword':
+                    $fileType = array(
+                        'ext' => 'doc',
+                        'type' => $mimeType,
+                    );
+                    break;
+                case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+                    $fileType = array(
+                        'ext' => 'docx',
+                        'type' => $mimeType,
+                    );
+                    break;
+                case 'application/vnd.ms-excel':
+                    $fileType = array(
+                        'ext' => 'xls',
+                        'type' => $mimeType,
+                    );
+                    break;
+                case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+                    $fileType = array(
+                        'ext' => 'xlsx',
+                        'type' => $mimeType,
+                    );
+                    break;
+                case 'application/vnd.ms-powerpoint':
+                    $fileType = array(
+                        'ext' => 'ppt',
+                        'type' => $mimeType,
+                    );
+                    break;
+                case 'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+                    $fileType = array(
+                        'ext' => 'pptx',
+                        'type' => $mimeType,
+                    );
+                    break;
+                default:
+                    Logger::log('An error occured while downloading the attachment');
+                    Logger::log(print_r($file, 1));
+                    return null;
+            }
+        }
+        return $fileType;
+    }
+
+    private function fileName(array $fileType)
+    {
+        $filename = $this->filename ?? strtok(basename($this->url), '?');
+        $extension = pathinfo($filename, PATHINFO_EXTENSION);
+        
+        if (empty($extension)) {
+            $filename = $filename . '.' . $fileType['ext'];
+        }
+
+        return $filename;
+    }
+
     /**
      * Import and attach media
      *
@@ -103,7 +210,11 @@ class Media
         
         $existingMedia = get_posts($args);
 
-        Logger::log(sprintf('Searching for existing attachment with original_url %s and original_modified_date %s', $url, $this->dateModified));
+        Logger::log(sprintf(
+            'Searching for existing attachment with original_url %s and original_modified_date %s',
+            $url,
+            $this->dateModified
+        ));
         if (! empty($existingMedia)) {
             $attachmentId = $existingMedia[0]->ID;
             Logger::log(sprintf('Found attachment with ID #%s', $attachmentId));
@@ -145,9 +256,11 @@ class Media
             return null;
         }
 
+        $fileType = $this->fileType($tempFile);
+
         $file = array(
-            'name'     => $this->filename ?? strtok(basename($this->url), '?'),
-            'type'     => wp_check_filetype($tempFile),
+            'name'     => $this->fileName($fileType),
+            'type'     => $fileType,
             'tmp_name' => $tempFile,
             'error'    => 0,
             'size'     => filesize($tempFile),
