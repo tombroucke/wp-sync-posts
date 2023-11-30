@@ -116,7 +116,7 @@ foreach ($externalPosts as $externalPost) {
 		'by' => 'sku',
 	];
 
-    $syncer->addPost($args, $existingPostQuery, $existingVariationQuery);
+    $syncer->addProduct($args, $existingPostQuery, $existingVariationQuery);
 }
 
 $syncer->execute();
