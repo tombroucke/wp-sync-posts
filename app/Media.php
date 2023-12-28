@@ -13,6 +13,13 @@ class Media
     private $url = '';
 
     /**
+     * The original media filestream
+     *
+     * @var string
+     */
+    private $filestream = '';
+
+    /**
      * The original media date modified (Y-m-d H:i:s)
      *
      * @var string
@@ -51,6 +58,7 @@ class Media
     {
         $default_media = array(
             'url'                   => '',
+            'filestream'            => null,
             'filename'              => null,
             'date_modified'         => 'unchanged',
             'title'                 => strtok(pathinfo($media['url'], PATHINFO_FILENAME), '?'),
@@ -61,6 +69,7 @@ class Media
         $media = wp_parse_args($media, $default_media);
 
         $this->url                  = $media['url'];
+        $this->filestream           = $media['filestream'];
         $this->filename             = $media['filename'];
         $this->dateModified         = $media['date_modified'];
         $this->title                = $media['title'];
@@ -176,10 +185,10 @@ class Media
     /**
      * Import and attach media
      *
-     * @param [type] $postId    The ID of the post to attach media to
+     * @param int|null $postId    The ID of the post to attach media to
      * @return integer|null     The attachment ID
      */
-    public function importAndAttachToPost($postId) : ?int
+    public function importAndAttachToPost($postId = null) : ?int
     {
 
         if (!$this->url || $this->url == '') {
@@ -246,9 +255,16 @@ class Media
         }
 
         Logger::log('Creating new attachment');
-        // Download file to temp dir.
-        $timeOutInSeconds = 20;
-        $tempFile = download_url($this->url, $timeOutInSeconds);
+
+        if (isset($this->filestream)) {
+            // save filestream to temp file
+            $tempFile = tempnam(sys_get_temp_dir(), 'wp-sync-posts');
+            file_put_contents($tempFile, $this->filestream);
+        } else {
+            // Download file to temp dir.
+            $timeOutInSeconds = 20;
+            $tempFile = download_url($this->url, $timeOutInSeconds);
+        }
 
         if (is_wp_error($tempFile)) {
             Logger::log('An error occured while downloading the attachment');
