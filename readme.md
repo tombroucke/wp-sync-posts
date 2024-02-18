@@ -16,7 +16,7 @@ foreach ($externalPosts as $externalPost) {
         'meta_input' => [
             'external_id' => $externalPost->id(),
             'other_meta' => $externalPost->otherMeta(),
-        ),
+        ],
         'media' => [
             [
                 'key'           => false,
