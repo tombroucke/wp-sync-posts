@@ -244,7 +244,9 @@ class Post
     public function save() : int
     {
         $args = $this->prepareArgs($this->args);
-        $id = wp_insert_post($args, true);
+        $insert = !isset($args['ID']);
+
+        $id = $insert ? wp_insert_post($args, true) : wp_update_post($args, true);
 
         if (!is_numeric($id)) {
             return false;
