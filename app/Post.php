@@ -41,6 +41,9 @@ class Post
         'tags_input',
         'tax_input',
         'meta_input',
+        'lang',
+        'wpml_original_post_reference',
+        'wpml_reference',
     ];
 
     /**
@@ -75,6 +78,13 @@ class Post
      * @var string
      */
     protected $postType = '';
+
+    /**
+     * Whether the wpml translation has been set
+     *
+     * @var boolean
+     */
+    protected $wpmlTranslationIsSet = false;
     
     /**
      * Default query
@@ -313,6 +323,64 @@ class Post
             }
         }
 
-        return $id;
+        $this->setWpmlReference();
+        $this->setWpmlTranslation();
+
+        return $this->id;
+    }
+
+    public function setWpmlReference()
+    {
+        $wpmlReference = $this->args['wpml_reference'] ?? null;
+        if ($wpmlReference) {
+            update_post_meta($this->id(), 'wpml_reference', $wpmlReference);
+        }
+    }
+
+    public function setWpmlTranslation()
+    {
+        if ($this->wpmlTranslationIsSet) {
+            return;
+        }
+
+        $originalPostReference = $this->args['wpml_original_post_reference'] ?? null;
+        if (!$originalPostReference) {
+            return;
+        }
+
+        $originalPostID = $this->find([
+            'by' => 'meta_value',
+            'key' => 'wpml_reference',
+            'value' => $originalPostReference,
+        ]);
+
+        if (!$originalPostID) {
+            return;
+        }
+
+        $originalPostLanguageInfo = apply_filters(
+            'wpml_element_language_details',
+            null,
+            [
+                'element_id' => $originalPostID,
+                'element_type' => $this->postType
+            ]
+        );
+
+        $wpmlElementType = apply_filters(
+            'wpml_element_type',
+            $this->postType
+        );
+
+        $languageArgs = [
+            'element_id' => $this->id(),
+            'element_type' => $wpmlElementType,
+            'trid' => $originalPostLanguageInfo->trid,
+            'language_code' => $this->args['lang'],
+            'source_language_code' => $originalPostLanguageInfo->language_code,
+        ];
+        do_action('wpml_set_element_language_details', $languageArgs);
+
+        $this->wpmlTranslationIsSet = true;
     }
 }

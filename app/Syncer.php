@@ -82,6 +82,13 @@ class Syncer
             $post->save();
         }
 
+        /* We need to execute setWpmlTranslation again after all posts are saved
+        * because the original language might have been saved after the translation
+        */
+        foreach ($this->posts as $post) {
+            $post->setWpmlTranslation();
+        }
+
         if ($cleanUp) {
             $postIds = array_map(function ($post) {
                 return $post->id();
