@@ -121,3 +121,17 @@ foreach ($externalPosts as $externalPost) {
 
 $syncer->execute();
 ```
+
+# WPML support
+```php
+$reference = $externalPost->id() . '_' . $externalPost->language();
+$args = [
+	'post_title' => $externalPost->title(),
+	'meta_input' => [
+		'external_id' => $reference,
+	],
+	'lang'                          => $externalPost->language(),
+	'wpml_reference'                => $reference,
+	'wpml_original_post_reference'  => $externalPost->id() . '_' . 'en',
+];
+```
