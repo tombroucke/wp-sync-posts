@@ -221,6 +221,7 @@ class Post
                     'post_status'       => get_post_stati(),
                     'posts_per_page'    => 1,
                     'fields'            => 'ids',
+                    'suppress_filters'  => apply_filters('wp_sync_posts_suppress_filters', false),
                     'meta_query'        => array(
                         array(
                             'key'       => $key,

@@ -78,6 +78,10 @@ class Syncer
      */
     public function execute(bool $cleanUp = true, bool $forceDelete = true) : array
     {
+        if (!defined('WP_ADMIN')) {
+            define('WP_ADMIN', true);
+        }
+
         foreach ($this->posts as $post) {
             $post->save();
         }

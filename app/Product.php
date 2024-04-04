@@ -141,6 +141,7 @@ class Product extends Post
             $args = array(
                 'post_type'         => $postType,
                 'post_status'       => get_post_stati(),
+                'suppress_filters'  => apply_filters('wp_sync_posts_suppress_filters', false),
                 'posts_per_page'    => 1,
                 'fields'            => 'ids',
                 'meta_query'        => array(
@@ -372,6 +373,7 @@ class Product extends Post
          'post_parent'       => $postParent,
          'post__not_in'      => $syncedVariations,
          'post_status'       => get_post_stati(),
+         'suppress_filters'  => apply_filters('wp_sync_posts_suppress_filters', false),
         );
         $deletePosts = get_posts($args);
         foreach ($deletePosts as $deletePost) {
