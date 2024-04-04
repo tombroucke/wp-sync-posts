@@ -276,6 +276,7 @@ class Post
         }
 
         // Import media.
+        $featuredImage = null;
         if ($this->media) {
             $attachmentIds = [
                 'synced_images' => [],
@@ -295,7 +296,7 @@ class Post
                 }
 
                 if (isset($item['featured']) && $item['featured']) {
-                    set_post_thumbnail($this->id(), $attachmentId);
+                    $featuredImage = $attachmentId;
                 }
             }
 
@@ -311,6 +312,14 @@ class Post
             //         }
             //     }
             // }
+        } else {
+            update_post_meta($this->id(), 'synced_images', []);
+        }
+
+        if ($featuredImage) {
+            set_post_thumbnail($this->id(), $featuredImage);
+        } else {
+            delete_post_thumbnail($this->id());
         }
 
         /**
