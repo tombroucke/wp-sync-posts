@@ -269,6 +269,7 @@ class Media
         if (is_wp_error($tempFile)) {
             Logger::log('An error occured while downloading the attachment');
             Logger::log(print_r($tempFile, 1));
+            @unlink($tempFile);
             return null;
         }
 
@@ -292,6 +293,7 @@ class Media
         if (!empty($result['error'])) {
             Logger::log('An error occured while importing the attachment');
             Logger::log(print_r($result, 1));
+            @unlink($tempFile);
             return null;
         }
 
@@ -322,6 +324,7 @@ class Media
         }
 
         Logger::log(sprintf('New attachment created with ID %s', $attachId));
+        @unlink($tempFile);
         return $attachId;
     }
 }
