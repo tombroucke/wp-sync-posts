@@ -173,9 +173,8 @@ class Media
     private function fileName(array $fileType)
     {
         $filename = $this->filename ?? strtok(basename($this->url), '?');
-        $extension = pathinfo($filename, PATHINFO_EXTENSION);
         
-        if (empty($extension)) {
+        if (strpos($filename, $fileType['ext']) === false) {
             $filename = $filename . '.' . $fileType['ext'];
         }
 
