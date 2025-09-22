@@ -1,4 +1,5 @@
-<?php //phpcs:ignore
+<?php
+
 namespace Otomaties\WpSyncPosts;
 
 class Logger

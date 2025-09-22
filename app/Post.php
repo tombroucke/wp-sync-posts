@@ -1,4 +1,5 @@
-<?php //phpcs:ignore
+<?php
+
 namespace Otomaties\WpSyncPosts;
 
 class Post
@@ -52,10 +53,10 @@ class Post
      * @var array
      */
     private $defaultPostArgs = [
-        'post_type'    => 'post',
-        'post_title'   => '',
+        'post_type' => 'post',
+        'post_title' => '',
         'post_content' => '',
-        'post_status'  => 'publish',
+        'post_status' => 'publish',
     ];
 
     /**
@@ -68,7 +69,7 @@ class Post
     /**
      * ID of this post
      *
-     * @var integer
+     * @var int
      */
     private $id = 0;
 
@@ -82,10 +83,10 @@ class Post
     /**
      * Whether the wpml translation has been set
      *
-     * @var boolean
+     * @var bool
      */
     protected $wpmlTranslationIsSet = false;
-    
+
     /**
      * Default query
      *
@@ -93,15 +94,11 @@ class Post
      */
     private $defaultQuery = [
         'by' => 'id',
-        'value' => 0
+        'value' => 0,
     ];
 
     /**
      * Save post type, args & find match in database
-     *
-     * @param string $postType
-     * @param array $args
-     * @param array $existingPostQuery
      */
     public function __construct(string $postType, array $args, array $existingPostQuery)
     {
@@ -110,39 +107,31 @@ class Post
         $args = wp_parse_args($args, $this->defaultPostArgs);
         $this->media = $this->extractMedia($args);
         $this->args = $this->removeUnsupportedArgs($args, $this->availableArgs);
-        
+
         $existingPostQuery = wp_parse_args($existingPostQuery, $this->defaultQuery);
         $this->id = $this->find($existingPostQuery);
     }
 
     /**
      * Get post ID. Returns 0 if post doesn't exist
-     *
-     * @return integer
      */
-    public function id() : int
+    public function id(): int
     {
         return $this->id;
     }
 
     /**
      * Set post ID
-     *
-     * @param integer $id
-     * @return integer
      */
-    private function setId(int $id) : int
+    private function setId(int $id): int
     {
         return $this->id = $id;
     }
 
     /**
      * Extra media key from an array
-     *
-     * @param array $args
-     * @return array
      */
-    private function extractMedia(array $args) : array
+    private function extractMedia(array $args): array
     {
         return isset($args['media']) ? $args['media'] : [];
     }
@@ -150,11 +139,11 @@ class Post
     /**
      * Compare two arrays, remove keys from first array which aren't present in second array
      *
-     * @param array $args The array with actual data
-     * @param array $availableArgs The array to compare to
+     * @param  array  $args  The array with actual data
+     * @param  array  $availableArgs  The array to compare to
      * @return array The filtered array with actual data
      */
-    protected function removeUnsupportedArgs(array $args, array $availableArgs) : array
+    protected function removeUnsupportedArgs(array $args, array $availableArgs): array
     {
         return array_intersect_key($args, array_flip($availableArgs));
     }
@@ -162,11 +151,8 @@ class Post
     /**
      * Define post ID for existing post, remove ID for new posts
      * Define post_Type
-     *
-     * @param array $args
-     * @return array
      */
-    private function prepareArgs(array $args) : array
+    private function prepareArgs(array $args): array
     {
         if ($this->id() > 0) {
             $args['ID'] = $this->id();
@@ -174,25 +160,25 @@ class Post
             unset($args['ID']);
         }
         $args['post_type'] = $this->postType;
+
         return $args;
     }
 
     /**
      * Find a post in the database
      *
-     * @param array $existingPostQuery
-     * @return integer
+     * @param  array  $existingPostQuery
      */
-    protected function find(array $query, string $postType = null) : int
+    protected function find(array $query, ?string $postType = null): int
     {
-        if (!isset($query['by'])) {
+        if (! isset($query['by'])) {
             throw new \Exception('Query by is not set', 1);
         }
-        if (!isset($query['value'])) {
+        if (! isset($query['value'])) {
             throw new \Exception('Query value is not set', 1);
         }
 
-        if ($query['by'] == 'meta_value' & !isset($query['key'])) {
+        if ($query['by'] == 'meta_value' & ! isset($query['key'])) {
             throw new \Exception('Query key is not set', 1);
         }
 
@@ -210,26 +196,27 @@ class Post
                 } else {
                     Logger::log(sprintf('No post found'));
                 }
+
                 return $postId;
                 break;
             case 'meta_value':
                 $postId = 0;
                 $key = $query['key'];
                 Logger::log(sprintf('Searching for post with meta key %s %s %s', $key, $compare, $value));
-                $args = array(
-                    'post_type'         => $postType,
-                    'post_status'       => get_post_stati(),
-                    'posts_per_page'    => 1,
-                    'fields'            => 'ids',
-                    'suppress_filters'  => apply_filters('wp_sync_posts_suppress_filters', false),
-                    'meta_query'        => array(
-                        array(
-                            'key'       => $key,
-                            'value'     => $value,
-                            'compare'   => $compare,
-                        ),
-                    ),
-                );
+                $args = [
+                    'post_type' => $postType,
+                    'post_status' => get_post_stati(),
+                    'posts_per_page' => 1,
+                    'fields' => 'ids',
+                    'suppress_filters' => apply_filters('wp_sync_posts_suppress_filters', false),
+                    'meta_query' => [
+                        [
+                            'key' => $key,
+                            'value' => $value,
+                            'compare' => $compare,
+                        ],
+                    ],
+                ];
 
                 $postIds = get_posts($args);
                 if (isset($postIds[0])) {
@@ -238,28 +225,29 @@ class Post
                 } else {
                     Logger::log(sprintf('Post not found'));
                 }
+
                 return $postId;
                 break;
 
             default:
                 throw new \Exception(sprintf('%s is not a supported value for \'by\'', $query['by']), 1);
-            break;
+                break;
         }
     }
 
     /**
      * Insert/update post
      *
-     * @return boolean Whether the post has been saved
+     * @return bool Whether the post has been saved
      */
-    public function save() : int
+    public function save(): int
     {
         $args = $this->prepareArgs($this->args);
-        $insert = !isset($args['ID']);
+        $insert = ! isset($args['ID']);
 
         $id = $insert ? wp_insert_post($args, true) : wp_update_post($args, true);
 
-        if (!is_numeric($id)) {
+        if (! is_numeric($id)) {
             return false;
         }
 
@@ -267,7 +255,7 @@ class Post
 
         $mediaGroups = ['synced_images'];
         foreach ($this->media as $item) {
-            if (isset($item['group']) && !in_array($item['group'], $mediaGroups)) {
+            if (isset($item['group']) && ! in_array($item['group'], $mediaGroups)) {
                 $mediaGroups[] = $item['group'];
             }
         }
@@ -325,9 +313,10 @@ class Post
 
         /**
          * tax_input relies on the user having permissions to a taxonomy, so we need to manually assign the terms
+         *
          * @see https://wordpress.stackexchange.com/questions/210229/tax-input-not-working-wp-insert-post
          */
-        if (isset($this->args['tax_input']) && !empty($this->args['tax_input'])) {
+        if (isset($this->args['tax_input']) && ! empty($this->args['tax_input'])) {
             foreach ($this->args['tax_input'] as $taxonomy => $terms) {
                 wp_set_object_terms($this->id(), $terms, $taxonomy);
             }
@@ -354,7 +343,7 @@ class Post
         }
 
         $originalPostReference = $this->args['wpml_original_post_reference'] ?? null;
-        if (!$originalPostReference) {
+        if (! $originalPostReference) {
             return;
         }
 
@@ -364,7 +353,7 @@ class Post
             'value' => $originalPostReference,
         ]);
 
-        if (!$originalPostID) {
+        if (! $originalPostID) {
             return;
         }
 
@@ -373,7 +362,7 @@ class Post
             null,
             [
                 'element_id' => $originalPostID,
-                'element_type' => $this->postType
+                'element_type' => $this->postType,
             ]
         );
 
