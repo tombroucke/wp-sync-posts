@@ -261,6 +261,15 @@ class Media
         Logger::log('Creating new attachment');
 
         if (isset($this->filestream)) {
+            if (is_callable($this->filestream)) {
+                try {
+                    $this->filestream = call_user_func($this->filestream);
+                } catch (\Exception $e) {
+                    Logger::log($e->getMessage().' '.$this->url);
+
+                    return null;
+                }
+            }
             // save filestream to temp file
             $tempFile = tempnam(sys_get_temp_dir(), 'wp-sync-posts');
             file_put_contents($tempFile, $this->filestream);
