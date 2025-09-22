@@ -16,9 +16,9 @@ class Media
     /**
      * The original media filestream
      *
-     * @var string
+     * @var string|null
      */
-    private $filestream = '';
+    private $filestream = null;
 
     /**
      * The original media date modified (Y-m-d H:i:s)
@@ -44,7 +44,7 @@ class Media
     /**
      * The filename to use for the media
      *
-     * @var string
+     * @var string|null
      */
     private $filename = null;
 
@@ -57,7 +57,7 @@ class Media
      */
     public function __construct(array $media)
     {
-        $default_media = [
+        $defaultMedia = [
             'url' => '',
             'filestream' => null,
             'filename' => null,
@@ -67,7 +67,7 @@ class Media
             'remove_querystring' => true,
         ];
 
-        $media = wp_parse_args($media, $default_media);
+        $media = wp_parse_args($media, $defaultMedia);
 
         $this->url = $media['url'];
         $this->filestream = $media['filestream'];
@@ -164,7 +164,7 @@ class Media
                     break;
                 default:
                     Logger::log('An error occured while downloading the attachment');
-                    Logger::log(print_r($file, 1));
+                    Logger::log(print_r($file, true));
 
                     return null;
             }
@@ -272,8 +272,7 @@ class Media
 
         if (is_wp_error($tempFile)) {
             Logger::log('An error occured while downloading the attachment');
-            Logger::log(print_r($tempFile, 1));
-            @unlink($tempFile);
+            Logger::log(print_r($tempFile, true));
 
             return null;
         }
@@ -297,7 +296,7 @@ class Media
 
         if (! empty($result['error'])) {
             Logger::log('An error occured while importing the attachment');
-            Logger::log(print_r($result, 1));
+            Logger::log(print_r($result, true));
             @unlink($tempFile);
 
             return null;

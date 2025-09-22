@@ -20,12 +20,13 @@
   "require-dev": {
     "szepeviktor/phpstan-wordpress": "^1.3",
     "squizlabs/php_codesniffer": "^3.7",
-    "laravel/pint": "^1.25"
+    "laravel/pint": "^1.25",
+    "php-stubs/woocommerce-stubs": "^10.2"
   },
   "scripts": {
     "test": [
       "phpcs --standard=PSR2 app",
-      "vendor/bin/phpstan analyze app --memory-limit 512M"
+      "vendor/bin/phpstan analyze app --memory-limit 1024M"
     ]
   }
 }

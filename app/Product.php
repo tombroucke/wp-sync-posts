@@ -175,13 +175,13 @@ class Product extends Post
      * @param  int  $stockAmount  The amount of products in stock.
      * @param  string  $backorders  Whether backorders are allowed.
      */
-    private function syncProductStock($productId, $stockAmount, $backorders)
+    private function syncProductStock(int $productId, ?int $stockAmount, ?string $backorders)
     {
-        if (! isset($backorders)) {
+        if (! $backorders) {
             update_post_meta($productId, '_backorders', 'no');
         }
 
-        if (isset($stockAmount)) {
+        if ($stockAmount) {
             wc_update_product_stock($productId, $stockAmount);
             if ($stockAmount <= 0) {
                 if (isset($backorders) && $backorders != 'no') {
@@ -254,9 +254,8 @@ class Product extends Post
      * Insert attribute
      *
      * @param  array  $attribute  Attribute array.
-     * @return WP_Error|bool
      */
-    private function proccessAddAttribute($attribute)
+    private function proccessAddAttribute($attribute): \WP_Error|bool
     {
         global $wpdb;
 
@@ -272,7 +271,7 @@ class Product extends Post
 
         if (empty($attribute['attribute_name']) || empty($attribute['attribute_label'])) {
             return new \WP_Error('error', __('Please, provide an attribute name and slug.', 'woocommerce'));
-        } elseif (($validAttributeName = $this->validAttributeName($attribute['attribute_name'])) && is_wp_error($validAttributeName)) { // phpcs:ignore Generic.Files.LineLength.TooLong
+        } elseif (($validAttributeName = $this->isValidAttributeName($attribute['attribute_name'])) && is_wp_error($validAttributeName)) { // phpcs:ignore Generic.Files.LineLength.TooLong
             return $validAttributeName;
         } elseif (taxonomy_exists(wc_attribute_taxonomy_name($attribute['attribute_name']))) {
             return new \WP_Error('error', sprintf(
@@ -295,9 +294,8 @@ class Product extends Post
      * Check if attribute name is valid
      *
      * @param  string  $attributeName  The desired name of the attribute
-     * @return WP_Error|bool
      */
-    private function validAttributeName($attributeName)
+    private function isValidAttributeName($attributeName): \WP_Error|bool
     {
         if (strlen($attributeName) >= 28) {
             return new \WP_Error('error', sprintf(
@@ -389,9 +387,8 @@ class Product extends Post
      * @param  int  $index  Index of the current variation.
      * @param  array  $variation  Variation array.
      * @param  int  $variationsCount  Total amount of variations.
-     * @return void
      */
-    private function insertProductVariation($productId, $index, $variation, $variationsCount)
+    private function insertProductVariation($productId, $index, $variation, $variationsCount): int
     {
 
         $variation_post = [
@@ -428,9 +425,8 @@ class Product extends Post
      *
      * @param  int  $variationId  The ID of the variation.
      * @param  array  $variation  The variation array.
-     * @return void
      */
-    private function updateProductVariation($variationId, $variation)
+    private function updateProductVariation($variationId, $variation): int
     {
         Logger::log(sprintf('Updating variation %s', $variationId));
         foreach ($variation['woocommerce']['attributes'] as $attr => $value) {

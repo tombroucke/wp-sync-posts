@@ -6,6 +6,7 @@ parameters:
     level: 5
     inferPrivatePropertyTypeFromConstructor: true
     bootstrapFiles:
+        - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
     paths:
         - inc/
     ignoreErrors:

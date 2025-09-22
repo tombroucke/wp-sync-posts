@@ -13,10 +13,8 @@ class Post
 
     /**
      * List of valid arguments
-     *
-     * @var array
      */
-    protected $availableArgs = [
+    protected array $availableArgs = [
         'ID',
         'post_author',
         'post_date',
@@ -49,10 +47,8 @@ class Post
 
     /**
      * Default value for arguments
-     *
-     * @var array
      */
-    private $defaultPostArgs = [
+    private array $defaultPostArgs = [
         'post_type' => 'post',
         'post_title' => '',
         'post_content' => '',
@@ -61,38 +57,23 @@ class Post
 
     /**
      * Array of media to import
-     *
-     * @var array
      */
-    private $media = [];
+    private array $media = [];
 
     /**
      * ID of this post
-     *
-     * @var int
      */
-    private $id = 0;
-
-    /**
-     * Post type
-     *
-     * @var string
-     */
-    protected $postType = '';
+    private int $id = 0;
 
     /**
      * Whether the wpml translation has been set
-     *
-     * @var bool
      */
-    protected $wpmlTranslationIsSet = false;
+    protected bool $wpmlTranslationIsSet = false;
 
     /**
      * Default query
-     *
-     * @var array
      */
-    private $defaultQuery = [
+    private array $defaultQuery = [
         'by' => 'id',
         'value' => 0,
     ];
@@ -100,10 +81,8 @@ class Post
     /**
      * Save post type, args & find match in database
      */
-    public function __construct(string $postType, array $args, array $existingPostQuery)
+    public function __construct(protected string $postType, array $args, array $existingPostQuery)
     {
-        $this->postType = $postType;
-
         $args = wp_parse_args($args, $this->defaultPostArgs);
         $this->media = $this->extractMedia($args);
         $this->args = $this->removeUnsupportedArgs($args, $this->availableArgs);
@@ -166,8 +145,6 @@ class Post
 
     /**
      * Find a post in the database
-     *
-     * @param  array  $existingPostQuery
      */
     protected function find(array $query, ?string $postType = null): int
     {
@@ -198,7 +175,6 @@ class Post
                 }
 
                 return $postId;
-                break;
             case 'meta_value':
                 $postId = 0;
                 $key = $query['key'];
@@ -227,20 +203,18 @@ class Post
                 }
 
                 return $postId;
-                break;
 
             default:
                 throw new \Exception(sprintf('%s is not a supported value for \'by\'', $query['by']), 1);
-                break;
         }
     }
 
     /**
      * Insert/update post
      *
-     * @return bool Whether the post has been saved
+     * @return bool|int Whether the post has been saved
      */
-    public function save(): int
+    public function save(): bool|int
     {
         $args = $this->prepareArgs($this->args);
         $insert = ! isset($args['ID']);

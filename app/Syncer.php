@@ -5,28 +5,19 @@ namespace Otomaties\WpSyncPosts;
 class Syncer
 {
     /**
-     * The post type to sync
-     *
-     * @var string
-     */
-    private $postType = 'post';
-
-    /**
      * The array of posts to sync
-     *
-     * @var array
      */
-    private $posts = [];
+    private array $posts = [];
 
     /**
      * Set post type
      */
-    public function __construct(string $postType = 'post')
+    public function __construct(private string $postType = 'post')
     {
-        $this->postType = $postType;
+        //
     }
 
-    public function add($className, $args)
+    private function add(string $className, array $args)
     {
         $class = new \ReflectionClass($className);
         $objArgs = $args;
@@ -39,26 +30,18 @@ class Syncer
 
     /**
      * Add post to posts to sync
-     *
-     * @param  array  $args
      */
-    public function addPost(...$args)
+    public function addPost(array ...$args): Post
     {
-        $className = '\\Otomaties\\WpSyncPosts\\Post';
-
-        return $this->add($className, $args);
+        return $this->add(Post::class, $args);
     }
 
     /**
      * Add post to posts to sync
-     *
-     * @param  array  $args
      */
-    public function addProduct(...$args)
+    public function addProduct(array ...$args): Product
     {
-        $className = '\\Otomaties\\WpSyncPosts\\Product';
-
-        return $this->add($className, $args);
+        return $this->add(Product::class, $args);
     }
 
     /**
@@ -90,19 +73,21 @@ class Syncer
         }
 
         if ($cleanUp) {
-            $postIds = array_map(function ($post) {
+            $syncedPostIds = array_map(function ($post) {
                 return $post->id();
             }, $this->posts);
+
             $args = [
                 'post_type' => $this->postType,
                 'posts_per_page' => -1,
-                'post__not_in' => $postIds,
+                'post__not_in' => $syncedPostIds,
                 'post_status' => get_post_stati(),
                 'suppress_filters' => apply_filters('wp_sync_posts_suppress_filters', false),
+                'fields' => 'ids',
             ];
-            $delete_posts = get_posts($args);
-            foreach ($delete_posts as $delete_post) {
-                wp_delete_post($delete_post->ID, $forceDelete);
+
+            foreach (get_posts($args) as $abandonedPostId) {
+                wp_delete_post($abandonedPostId, $forceDelete);
             }
         }
 
