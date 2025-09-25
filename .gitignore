@@ -1,2 +1,5 @@
 composer.lock
 /vendor/
+wp
+.phpunit.result.cache
+wp-content

@@ -2,6 +2,7 @@
 
 namespace Otomaties\WpSyncPosts;
 
+use Illuminate\Support\Str;
 use League\MimeTypeDetection\FinfoMimeTypeDetector;
 
 class Media
@@ -35,11 +36,11 @@ class Media
     private $title = '';
 
     /**
-     * Attachment meta
+     * Media meta
      *
-     * @var array
+     * @var \Illuminate\Support\Collection<string, mixed>
      */
-    private $meta = [];
+    private $meta;
 
     /**
      * The filename to use for the media
@@ -48,164 +49,119 @@ class Media
      */
     private $filename = null;
 
-    private $removeQueryString = true;
+    /**
+     * Supported MIME type mappings
+     */
+    private const MIME_TYPE_MAPPINGS = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/gif' => 'gif',
+        'image/bmp' => 'bmp',
+        'image/tiff' => 'tiff',
+        'application/pdf' => 'pdf',
+        'application/msword' => 'doc',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+        'application/vnd.ms-excel' => 'xls',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
+        'application/vnd.ms-powerpoint' => 'ppt',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation' => 'pptx',
+    ];
 
     /**
      * Set object properties
      *
-     * @param  array  $media  Media array.
+     * @param array<string, mixed> $media Media array.
      */
     public function __construct(array $media)
     {
-        $defaultMedia = [
-            'url' => '',
-            'filestream' => null,
-            'filename' => null,
-            'date_modified' => 'unchanged',
-            'title' => strtok(pathinfo($media['url'], PATHINFO_FILENAME), '?'),
-            'meta' => [],
-            'remove_querystring' => true,
-        ];
+        $this->url = $media['url'] ?? '';
+        $this->filestream = $media['filestream'] ?? null;
+        $this->filename = $media['filename'] ?? null;
+        $this->dateModified = $media['date_modified'] ?? 'unchanged';
+        $this->title = $media['title'] ?? strtok(pathinfo($media['url'], PATHINFO_FILENAME), '?');
 
-        $media = wp_parse_args($media, $defaultMedia);
-
-        $this->url = $media['url'];
-        $this->filestream = $media['filestream'];
-        $this->filename = $media['filename'];
-        $this->dateModified = $media['date_modified'];
-        $this->title = $media['title'];
-        $this->meta = $media['meta'];
-        $this->removeQueryString = $media['remove_querystring'];
-    }
-
-    private function fileType($file)
-    {
-        $fileType = wp_check_filetype($file);
-
-        $fileExtAndTypeAreFalse = array_reduce($fileType, function ($carry, $item) {
-            return $carry && ($item === false);
-        }, true);
-
-        if ($fileExtAndTypeAreFalse) {
-            $mimeTypeDetector = new FinfoMimeTypeDetector;
-            $mimeType = $mimeTypeDetector->detectMimeTypeFromFile($file);
-            switch ($mimeType) {
-                case 'image/jpeg':
-                    $fileType = [
-                        'ext' => 'jpg',
-                        'type' => $mimeType,
-                    ];
-                    break;
-                case 'image/png':
-                    $fileType = [
-                        'ext' => 'png',
-                        'type' => $mimeType,
-                    ];
-                    break;
-                case 'image/gif':
-                    $fileType = [
-                        'ext' => 'gif',
-                        'type' => $mimeType,
-                    ];
-                    break;
-                case 'image/bmp':
-                    $fileType = [
-                        'ext' => 'bmp',
-                        'type' => $mimeType,
-                    ];
-                    break;
-                case 'image/tiff':
-                    $fileType = [
-                        'ext' => 'tiff',
-                        'type' => $mimeType,
-                    ];
-                    break;
-                case 'application/pdf':
-                    $fileType = [
-                        'ext' => 'pdf',
-                        'type' => $mimeType,
-                    ];
-                    break;
-                case 'application/msword':
-                    $fileType = [
-                        'ext' => 'doc',
-                        'type' => $mimeType,
-                    ];
-                    break;
-                case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-                    $fileType = [
-                        'ext' => 'docx',
-                        'type' => $mimeType,
-                    ];
-                    break;
-                case 'application/vnd.ms-excel':
-                    $fileType = [
-                        'ext' => 'xls',
-                        'type' => $mimeType,
-                    ];
-                    break;
-                case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
-                    $fileType = [
-                        'ext' => 'xlsx',
-                        'type' => $mimeType,
-                    ];
-                    break;
-                case 'application/vnd.ms-powerpoint':
-                    $fileType = [
-                        'ext' => 'ppt',
-                        'type' => $mimeType,
-                    ];
-                    break;
-                case 'application/vnd.openxmlformats-officedocument.presentationml.presentation':
-                    $fileType = [
-                        'ext' => 'pptx',
-                        'type' => $mimeType,
-                    ];
-                    break;
-                default:
-                    Logger::log('An error occured while downloading the attachment');
-                    Logger::log(print_r($file, true));
-
-                    return null;
-            }
-        }
-
-        return $fileType;
-    }
-
-    private function fileName(array $fileType)
-    {
-        $filename = $this->filename ?? strtok(basename($this->url), '?');
-
-        if (strpos($filename, $fileType['ext']) === false) {
-            $filename = $filename.'.'.$fileType['ext'];
-        }
-
-        return $filename;
+        /** @var array<string, mixed> $metaData */
+        $metaData = $media['meta'] ?? [];
+        $this->meta = collect($metaData);
     }
 
     /**
-     * Import and attach media
+     * Determine the file type using WordPress functions or custom detection
      *
-     * @param  int|null  $postId  The ID of the post to attach media to
-     * @return int|null The attachment ID
+     * @param string $file The path to the file
+     * @return array<string, string>|null Array with 'ext' and 'type' keys or null if unsupported
      */
-    public function importAndAttachToPost($postId = null): ?int
+    private function determineFileType(string $file): ?array
     {
+        $fileType = wp_check_filetype($file);
 
-        if (! $this->url || $this->url == '') {
-            Logger::log(sprintf('No attachment url given for post %s', $postId));
+        if ($fileType['ext'] !== false && $fileType['type'] !== false) {
+            return $fileType;
+        }
 
+        // Fall back to custom MIME detection
+        return $this->customDetectMimeType($file);
+    }
+
+    /**
+     * Custom MIME type detection using finfo
+     *
+     * @param string $file The path to the file
+     * @return array<string, string>|null Array with 'ext' and 'type' keys or null if unsupported
+     */
+    private function customDetectMimeType(string $file): ?array
+    {
+        $mimeTypeDetector = new FinfoMimeTypeDetector();
+        $mimeType = $mimeTypeDetector->detectMimeTypeFromFile($file);
+
+        if (!isset(self::MIME_TYPE_MAPPINGS[$mimeType])) {
+            Logger::log("Unsupported MIME type detected: {$mimeType}");
+            Logger::log("File: " . print_r($file, true));
             return null;
         }
 
-        require_once ABSPATH.'wp-admin/includes/file.php';
-        require_once ABSPATH.'wp-admin/includes/image.php';
+        return [
+            'ext' => self::MIME_TYPE_MAPPINGS[$mimeType],
+            'type' => $mimeType,
+        ];
+    }
 
-        $url = $this->removeQueryString ? strtok($this->url, '?') : $this->url;
+    /**
+     * Generate a filename with the correct extension
+     *
+     * @param string $extension The file extension
+     * @return string The generated filename
+     */
+    private function generateFileName(string $extension)
+    {
+        $baseFilename = $this->filename ?? $this->extractFilenameFromUrl();
 
-        // Check if the exact file exists.
-        $args = [
+        return Str::of($baseFilename)
+            ->beforeLast('.' . $extension)
+            ->append('.' . $extension)
+            ->toString();
+    }
+
+    /**
+     * Extract filename from URL
+     *
+     * @return string The extracted filename
+     */
+    private function extractFilenameFromUrl(): string
+    {
+        return strtok(basename($this->url), '?');
+    }
+
+    /**
+     * Find existing media by original URL and date modified
+     *
+     * @param string $url The original media URL
+     * @param string $dateModified The original media date modified (Y-m-d H:i:s)
+     * @return int|null The attachment ID if found, null otherwise
+     */
+    public function findExistingMedia(string $url, string $dateModified): ?int
+    {
+        $existingMedia = get_posts([
             'post_type' => 'attachment',
             'posts_per_page' => 1,
             'meta_query' => [
@@ -215,29 +171,27 @@ class Media
                 ],
                 [
                     'key' => 'original_date_modified',
-                    'value' => $this->dateModified,
+                    'value' => $dateModified,
                 ],
             ],
-        ];
+        ]);
 
-        $existingMedia = get_posts($args);
-
-        Logger::log(sprintf(
-            'Searching for existing attachment with original_url %s and original_modified_date %s',
-            $url,
-            $this->dateModified
-        ));
-        if (! empty($existingMedia)) {
-            $attachmentId = $existingMedia[0]->ID;
-            Logger::log(sprintf('Found attachment with ID #%s', $attachmentId));
-
-            return $attachmentId;
-        } else {
-            Logger::log('No existing attachment found');
+        if (count($existingMedia) > 0) {
+            return $existingMedia[0]->ID;
         }
 
-        // Check if file is modified.
-        $args = [
+        return null;
+    }
+
+    /**
+     * Remove outdated media if it exists
+     *
+     * @param string $url The original media URL
+     * @return bool|int The attachment ID if removed, false otherwise
+     */
+    public function maybeRemoveOutdatedMedia(string $url): bool|int
+    {
+        $existingMedia = get_posts([
             'post_type' => 'attachment',
             'posts_per_page' => 1,
             'meta_query' => [
@@ -246,73 +200,83 @@ class Media
                     'value' => $url,
                 ],
             ],
-        ];
+        ]);
 
-        // delete attachment if it is modified
-        $existingMedia = get_posts($args);
-        if (! empty($existingMedia)) {
+        if (count($existingMedia) > 0) {
             $attachmentId = $existingMedia[0]->ID;
-            Logger::log(sprintf('Found modified attachment with ID #%s. Deleting ...', $attachmentId));
-            wp_delete_attachment($attachmentId, true);
-        } else {
-            Logger::log('No modified attachment found');
+            if (wp_delete_attachment($attachmentId, true)) {
+                return $attachmentId;
+            } else {
+                Logger::log(sprintf('Failed to delete outdated attachment ID %s', $attachmentId));
+            }
         }
 
-        Logger::log('Creating new attachment');
+        return false;
+    }
 
+    /**
+     * Download the file to a temporary location
+     *
+     * @return null|string|false|\WP_Error The path to the temporary file or WP_Error on failure
+     */
+    private function downloadTempFile(): null|string|false|\WP_Error
+    {
         if (isset($this->filestream)) {
             if (is_callable($this->filestream)) {
                 try {
                     $this->filestream = call_user_func($this->filestream);
                 } catch (\Exception $e) {
-                    Logger::log($e->getMessage().' '.$this->url);
+                    Logger::log($e->getMessage() . ' ' . $this->url);
 
                     return null;
                 }
             }
-            // save filestream to temp file
+
             $tempFile = tempnam(sys_get_temp_dir(), 'wp-sync-posts');
             file_put_contents($tempFile, $this->filestream);
         } else {
-            // Download file to temp dir.
-            $timeOutInSeconds = 20;
-            $tempFile = download_url($this->url, $timeOutInSeconds);
+            $tempFile = download_url($this->url, 30);
         }
 
-        if (is_wp_error($tempFile)) {
-            Logger::log('An error occured while downloading the attachment');
-            Logger::log(print_r($tempFile, true));
+        return $tempFile;
+    }
 
-            return null;
-        }
-
-        $fileType = $this->fileType($tempFile);
+    /**
+     * Handle file upload in WordPress
+     *
+     * @param string $tempFile The path to the temporary file
+     * @return array<string, mixed> The upload result from wp_handle_sideload
+     */
+    private function handleFileUploadInWordPress(string $tempFile): array
+    {
+        $fileType = $this->determineFileType($tempFile);
 
         $file = [
-            'name' => $this->fileName($fileType),
-            'type' => $fileType,
+            'name' => $this->generateFileName($fileType['ext']),
+            'type' => $fileType['type'],
             'tmp_name' => $tempFile,
             'error' => 0,
             'size' => filesize($tempFile),
         ];
-
         $overrides = [
             'test_form' => false,
             'test_size' => true,
         ];
 
-        $result = wp_handle_sideload($file, $overrides);
+        return wp_handle_sideload($file, $overrides);
+    }
 
-        if (! empty($result['error'])) {
-            Logger::log('An error occured while importing the attachment');
-            Logger::log(print_r($result, true));
-            @unlink($tempFile);
-
-            return null;
-        }
-
-        $filename = $result['file'];
-        $type = $result['type'];
+    /**
+     * Create a WordPress attachment from the uploaded file
+     *
+     * @param array<string, string> $upload The upload array returned by wp_handle_sideload
+     * @param int|null $postId The ID of the post to attach the media to
+     * @return int The attachment ID
+     */
+    private function createAttachment(array $upload, ?int $postId): int
+    {
+        $filename = $upload['file'];
+        $type = $upload['type'];
 
         $attachment = [
             'post_mime_type' => $type,
@@ -321,25 +285,136 @@ class Media
             'post_status' => 'inherit',
         ];
 
-        $attachId = wp_insert_attachment($attachment, $filename, $postId);
+        $attachmentId = wp_insert_attachment($attachment, $filename, $postId);
 
-        $attach_data = wp_generate_attachment_metadata($attachId, $filename);
-        wp_update_attachment_metadata($attachId, $attach_data);
+        $attach_data = wp_generate_attachment_metadata($attachmentId, $filename);
+        wp_update_attachment_metadata($attachmentId, $attach_data);
 
-        $required_meta = [
-            'original_url' => $url,
-            'original_date_modified' => $this->dateModified,
-        ];
+        $this->meta
+            ->merge([
+                'original_url' => $this->url,
+                'original_date_modified' => $this->dateModified,
+            ])
+            ->filter()
+            ->each(function ($value, $key) use ($attachmentId) {
+                add_post_meta($attachmentId, $key, $value);
+            });
 
-        $meta = array_merge($this->meta, $required_meta);
+        return $attachmentId;
+    }
 
-        foreach ($meta as $key => $value) {
-            add_post_meta($attachId, $key, $value);
+    /**
+     * Import and attach media
+     *
+     * @param int|null $postId The ID of the post to attach media to
+     * @return int|null The attachment ID
+     */
+    public function importAndAttachToPost($postId = null): ?int
+    {
+        $this->requireWordPressIncludes();
+
+        if (empty($this->url)) {
+            Logger::log(sprintf('No attachment url given for post %s', $postId));
+            return null;
         }
 
-        Logger::log(sprintf('New attachment created with ID %s', $attachId));
+        if ($existingMediaId = $this->findExistingMedia($this->url, $this->dateModified)) {
+            Logger::log(sprintf('Media already exists: #%s. Skipping', $existingMediaId));
+            return $existingMediaId;
+        }
+
+        $this->removeOutdatedMediaIfExists();
+
+        $tempFile = $this->downloadTempFile();
+        if ($this->isDownloadError($tempFile)) {
+            return null;
+        }
+
+        $uploadResult = $this->handleFileUploadInWordPress($tempFile);
+        if ($this->hasUploadError($uploadResult)) {
+            $this->cleanupTempFile($tempFile);
+            return null;
+        }
+
+        $attachmentId = $this->createAttachment($uploadResult, $postId);
+
+        Logger::log(sprintf('New attachment created with ID %s', $attachmentId));
         @unlink($tempFile);
 
-        return $attachId;
+        return $attachmentId;
+    }
+
+    /**
+     * Load required WordPress files for media handling
+     *
+     * @return void
+     */
+    private function requireWordPressIncludes(): void
+    {
+        collect([
+            ABSPATH . 'wp-admin/includes/file.php',
+            ABSPATH . 'wp-admin/includes/image.php',
+        ])
+        ->filter(fn($file) => file_exists($file))
+        ->each(fn($file) => require_once $file);
+    }
+
+    /**
+     * Remove outdated media if it exists
+     *
+     * @return void
+     */
+    private function removeOutdatedMediaIfExists(): void
+    {
+        if ($removedId = $this->maybeRemoveOutdatedMedia($this->url)) {
+            Logger::log(sprintf('Outdated attachment removed: #%s', $removedId));
+        }
+    }
+
+    /**
+     * Check if downloading the file resulted in an error
+     *
+     * @param null|string|false|\WP_Error $tempFile
+     * @return bool True if there was an error, false otherwise
+     */
+    private function isDownloadError(null|string|false|\WP_Error $tempFile): bool
+    {
+        if (is_wp_error($tempFile)) {
+            Logger::log(sprintf('Failed to download file from %s. %s', $this->url, $tempFile->get_error_message()));
+            return true;
+        }
+
+        if ($tempFile === null || $tempFile === false) {
+            Logger::log(sprintf('Failed to download file from %s. Download returned null/false', $this->url));
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if the upload resulted in an error
+     *
+     * @param array<string, string> $uploadResult
+     * @return bool True if there was an error, false otherwise
+     */
+    private function hasUploadError(array $uploadResult): bool
+    {
+        if (!empty($uploadResult['error'])) {
+            Logger::log('File upload error: ' . print_r($uploadResult, true));
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Clean up the temporary file
+     *
+     * @param string $tempFile
+     * @return void
+     */
+    private function cleanupTempFile(string $tempFile): void
+    {
+        @unlink($tempFile);
     }
 }

@@ -1,14 +1,8 @@
-#$ vendor/bin/phpstan analyze
-
 includes:
     - vendor/szepeviktor/phpstan-wordpress/extension.neon
 parameters:
     level: 5
-    inferPrivatePropertyTypeFromConstructor: true
     bootstrapFiles:
         - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
     paths:
-        - inc/
-    ignoreErrors:
-
-# See full example in phpstan-full.neon
+        - app/
