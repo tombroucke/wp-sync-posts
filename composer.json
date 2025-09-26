@@ -17,8 +17,7 @@
   "require": {
     "php": ">=8.0",
     "illuminate/support": "*",
-    "league/mime-type-detection": "^1.16",
-    "spatie/ray": "^1.42"
+    "league/mime-type-detection": "^1.16"
   },
   "require-dev": {
     "laravel/pint": "^1.25",
