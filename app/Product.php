@@ -1,5 +1,7 @@
 <?php
 
+// phpcs:ignore
+
 namespace Otomaties\WpSyncPosts;
 
 /**
@@ -67,7 +69,7 @@ class Product extends Post
         parent::__construct($postType, $args, $existingPostQuery);
     }
 
-    private function checkRequiredVariationParamaters()
+    private function checkRequiredVariationParamaters(): void
     {
         $requiredVariationParameters = [
             'available_attributes' => ! empty($this->woocommerceArgs['available_attributes']),
@@ -80,67 +82,67 @@ class Product extends Post
 
     public function save(): int
     {
-        $postId = parent::save();
-        $this->saveWooCommerceMeta($postId);
+        $productId = parent::save();
+        $product = wc_get_product($productId);
 
-        // Save needs to be triggered to clear data store cache
-        $product = wc_get_product($postId);
-        $product->save();
+        $this->updateProductMeta($product);
+
+        wc_delete_product_transients($productId);
+        wp_cache_delete($productId, 'products');
+        clean_post_cache($productId);
+
         Logger::log('Product save triggered');
 
-        return $postId;
+        return $productId;
     }
 
-    private function saveWooCommerceMeta($productId)
+    private function updateProductMeta($product): void
     {
-
+        $internalMetaKeys = $product->get_data_store()->get_internal_meta_keys();
         foreach ($this->woocommerceArgs['meta_input'] as $key => $value) {
-            update_post_meta($productId, $key, $value);
+            if (in_array($key, $internalMetaKeys, true)) {
+                $function = 'set_'.ltrim($key, '_');
+                $product->{$function}($value);
+            } else {
+                $product->update_meta_data($key, $value);
+            }
         }
 
         // Sync stock.
-        $stockAmount = isset($this->woocommerceArgs['meta_input']['_stock'])
-            ? $this->woocommerceArgs['meta_input']['_stock']
-            : null;
-
-        $backorders = isset($this->woocommerceArgs['meta_input']['_backorders'])
-            ? $this->woocommerceArgs['meta_input']['_backorders']
-            : null;
-
-        $this->syncProductStock($productId, $stockAmount, $backorders);
+        $this->syncProductStock(
+            $product,
+            $this->woocommerceArgs['meta_input']['_stock'] ?? null,
+            $this->woocommerceArgs['meta_input']['_backorders'] ?? null
+        );
 
         // Set product type.
-        if (isset($this->woocommerceArgs['product_type'])) {
-            wp_set_object_terms($productId, $this->woocommerceArgs['product_type'], 'product_type');
+        $productType = $this->woocommerceArgs['product_type'] ?? null;
+        if ($productType) {
+            wp_set_object_terms($product->get_ID(), $productType, 'product_type');
         }
 
         // Variations.
         if (! empty($this->woocommerceArgs['available_attributes'])) {
             // Create attributes.
             $this->insertProductAttributes(
-                $productId,
+                $product->get_ID(),
                 $this->woocommerceArgs['available_attributes'],
                 $this->woocommerceArgs['variations']
             );
 
-            if (isset($this->woocommerceArgs['product_type']) && $this->woocommerceArgs['product_type'] == 'variable') {
+            if ($productType && $productType == 'variable') {
                 // Create variations.
-                $this->syncProductVariations($productId, $this->woocommerceArgs['variations']);
+                $this->syncProductVariations($product->get_ID(), $this->woocommerceArgs['variations']);
             }
         }
     }
 
     protected function find(array $query, ?string $postType = null): int
     {
-        $findBy = $query['by'];
-        $compare = isset($query['compare']) ? $query['compare'] : '=';
-        $value = $query['value'];
-        $postType = $postType ?: $this->postType;
-
-        if ($findBy == 'sku') {
+        if ($query['by'] == 'sku') {
             $postId = 0;
             $args = [
-                'post_type' => $postType,
+                'post_type' => $postType ?: $this->postType,
                 'post_status' => get_post_stati(),
                 'suppress_filters' => apply_filters('wp_sync_posts_suppress_filters', false),
                 'posts_per_page' => 1,
@@ -148,13 +150,14 @@ class Product extends Post
                 'meta_query' => [
                     [
                         'key' => '_sku',
-                        'value' => $value,
-                        'compare' => $compare,
+                        'value' => $query['value'],
+                        'compare' => $query['compare'] ?: '=',
                     ],
                 ],
             ];
 
             $postIds = get_posts($args);
+
             if (isset($postIds[0])) {
                 $postId = $postIds[0];
                 Logger::log(sprintf('Found product: #%s', $postId));
@@ -171,30 +174,27 @@ class Product extends Post
     /**
      * Sync product stock, set backorders, manage stock
      *
-     * @param  int  $productId  The id of the product.
-     * @param  int  $stockAmount  The amount of products in stock.
+     * @param  ?int  $stockAmount  The amount of products in stock.
      * @param  string  $backorders  Whether backorders are allowed.
      */
-    private function syncProductStock(int $productId, ?int $stockAmount, ?string $backorders)
+    private function syncProductStock(\WC_Product $product, ?int $stockAmount = null, string $backorders = 'no'): void
     {
-        if (! $backorders) {
-            update_post_meta($productId, '_backorders', 'no');
-        }
+        $product->set_backorders($backorders);
 
         if ($stockAmount) {
-            wc_update_product_stock($productId, $stockAmount);
+            wc_update_product_stock($product->get_ID(), $stockAmount);
             if ($stockAmount <= 0) {
-                if (isset($backorders) && $backorders != 'no') {
-                    update_post_meta($productId, '_stock_status', 'instock');
+                if ($backorders != 'no') {
+                    $product->set_stock_status('instock');
                 } else {
-                    update_post_meta($productId, '_stock_status', 'outofstock');
+                    $product->set_stock_status('outofstock');
                 }
             } else {
-                update_post_meta($productId, '_stock_status', 'instock');
+                $product->set_stock_status('instock');
             }
-            update_post_meta($productId, '_manage_stock', 'yes');
+            $product->set_manage_stock(true);
         } else {
-            update_post_meta($productId, '_manage_stock', 'no');
+            $product->set_manage_stock(false);
         }
     }
 
@@ -204,9 +204,8 @@ class Product extends Post
      * @param  int  $postId  The post ID.
      * @param  array  $availableAttributes  The available attributes.
      * @param  array  $variations  The variations.
-     * @return void
      */
-    private function insertProductAttributes($postId, $availableAttributes, $variations)
+    private function insertProductAttributes(int $postId, array $availableAttributes, array $variations): void
     {
         foreach ($availableAttributes as $attribute) {
             $values = [];
@@ -221,15 +220,13 @@ class Product extends Post
                 }
             }
             $values = array_unique($values);
-            $this->proccessAddAttribute(
-                [
-                    'attribute_name' => $attribute,
-                    'attribute_label' => $attribute,
-                    'attribute_type' => 'text',
-                    'attribute_orderby' => 'menu_order',
-                    'attribute_public' => false,
-                ]
-            );
+            $this->proccessAddAttribute([
+                'attribute_name' => $attribute,
+                'attribute_label' => $attribute,
+                'attribute_type' => 'text',
+                'attribute_orderby' => 'menu_order',
+                'attribute_public' => false,
+            ]);
             wp_set_object_terms($postId, $values, 'pa_'.$attribute);
         }
 
@@ -237,13 +234,11 @@ class Product extends Post
 
         foreach ($availableAttributes as $attribute) {
             $productAttributesData['pa_'.$attribute] = [
-
                 'name' => 'pa_'.$attribute,
                 'value' => '',
                 'is_visible' => '1',
                 'is_variation' => '1',
                 'is_taxonomy' => '1',
-
             ];
         }
 
@@ -255,23 +250,17 @@ class Product extends Post
      *
      * @param  array  $attribute  Attribute array.
      */
-    private function proccessAddAttribute($attribute): \WP_Error|bool
+    private function proccessAddAttribute(array $attribute): \WP_Error|bool
     {
         global $wpdb;
 
-        if (empty($attribute['attribute_type'])) {
-            $attribute['attribute_type'] = 'text';
-        }
-        if (empty($attribute['attribute_orderby'])) {
-            $attribute['attribute_orderby'] = 'menu_order';
-        }
-        if (empty($attribute['attribute_public'])) {
-            $attribute['attribute_public'] = 0;
-        }
+        $attribute['attribute_type'] = $attribute['attribute_type'] ?? 'text';
+        $attribute['attribute_orderby'] = $attribute['attribute_orderby'] ?? 'menu_order';
+        $attribute['attribute_public'] = $attribute['attribute_public'] ?? 0;
 
         if (empty($attribute['attribute_name']) || empty($attribute['attribute_label'])) {
             return new \WP_Error('error', __('Please, provide an attribute name and slug.', 'woocommerce'));
-        } elseif (($validAttributeName = $this->isValidAttributeName($attribute['attribute_name'])) && is_wp_error($validAttributeName)) { // phpcs:ignore Generic.Files.LineLength.TooLong
+        } elseif (($validAttributeName = $this->validAttributeName($attribute['attribute_name'])) && is_wp_error($validAttributeName)) { // phpcs:ignore Generic.Files.LineLength.TooLong
             return $validAttributeName;
         } elseif (taxonomy_exists(wc_attribute_taxonomy_name($attribute['attribute_name']))) {
             return new \WP_Error('error', sprintf(
@@ -295,7 +284,7 @@ class Product extends Post
      *
      * @param  string  $attributeName  The desired name of the attribute
      */
-    private function isValidAttributeName($attributeName): \WP_Error|bool
+    private function validAttributeName(string $attributeName): \WP_Error|bool
     {
         if (strlen($attributeName) >= 28) {
             return new \WP_Error('error', sprintf(
@@ -318,7 +307,7 @@ class Product extends Post
      * @param  int  $productId  The product ID.
      * @param  array  $variations  Variations.
      */
-    private function syncProductVariations($productId, $variations)
+    private function syncProductVariations(int $productId, array $variations): void
     {
         $syncedVariations = [];
         $existingVariationQuery = $this->existingVariationQuery;
@@ -363,21 +352,22 @@ class Product extends Post
         $this->cleanUpVariations($productId, $syncedVariations);
     }
 
-    private function cleanUpVariations($postParent, $syncedVariations)
+    private function cleanUpVariations(int $postParent, array $syncedVariations): void
     {
-        $args = [
+        collect(get_posts([
             'post_type' => 'product_variation',
             'posts_per_page' => -1,
             'post_parent' => $postParent,
             'post__not_in' => $syncedVariations,
             'post_status' => get_post_stati(),
             'suppress_filters' => apply_filters('wp_sync_posts_suppress_filters', false),
-        ];
-        $deletePosts = get_posts($args);
-        foreach ($deletePosts as $deletePost) {
-            Logger::log(sprintf('Deleting variation %s', $deletePost->ID));
-            wp_delete_post($deletePost->ID, true);
-        }
+        ]))
+            ->each(
+                function ($deletePost) {
+                    Logger::log(sprintf('Deleting variation %s', $deletePost->ID));
+                    wp_delete_post($deletePost->ID, true);
+                }
+            );
     }
 
     /**
@@ -387,19 +377,17 @@ class Product extends Post
      * @param  int  $index  Index of the current variation.
      * @param  array  $variation  Variation array.
      * @param  int  $variationsCount  Total amount of variations.
+     * @return int The variation ID.
      */
-    private function insertProductVariation($productId, $index, $variation, $variationsCount): int
+    private function insertProductVariation(int $productId, int $index, array $variation, int $variationsCount): int
     {
-
         $variation_post = [
-
             'post_title' => 'Variation #'.$index.' of '.$variationsCount.' for product#'.$productId,
             'post_name' => 'product-'.$productId.'-variation-'.$index,
             'post_status' => 'publish',
             'post_parent' => $productId,
             'post_type' => 'product_variation',
             'guid' => home_url().'/?product_variation=product-'.$productId.'-variation-'.$index,
-
         ];
 
         $variationId = wp_insert_post($variation_post);
@@ -412,9 +400,9 @@ class Product extends Post
 
         $this->syncVariationMeta($variationId, $variation);
         $this->syncProductStock(
-            $variationId,
+            wc_get_product($variationId),
             (isset($variation['woocommerce']['_stock']) ? $variation['woocommerce']['_stock'] : null),
-            (isset($variation['woocommerce']['_backorders']) ? $variation['woocommerce']['_backorders'] : null)
+            (isset($variation['woocommerce']['_backorders']) ? $variation['woocommerce']['_backorders'] : 'no')
         );
 
         return $variationId;
@@ -426,17 +414,19 @@ class Product extends Post
      * @param  int  $variationId  The ID of the variation.
      * @param  array  $variation  The variation array.
      */
-    private function updateProductVariation($variationId, $variation): int
+    private function updateProductVariation(int $variationId, array $variation): int
     {
         Logger::log(sprintf('Updating variation %s', $variationId));
+
         foreach ($variation['woocommerce']['attributes'] as $attr => $value) {
             update_post_meta($variationId, 'attribute_pa_'.$attr, $value);
         }
+
         $this->syncVariationMeta($variationId, $variation);
         $this->syncProductStock(
-            $variationId,
+            wc_get_product($variationId),
             (isset($variation['woocommerce']['_stock']) ? $variation['woocommerce']['_stock'] : null),
-            (isset($variation['woocommerce']['_backorders']) ? $variation['woocommerce']['_backorders'] : null)
+            (isset($variation['woocommerce']['_backorders']) ? $variation['woocommerce']['_backorders'] : 'no')
         );
 
         return $variationId;
@@ -455,6 +445,7 @@ class Product extends Post
             $variation['woocommerce']['meta_input'],
             $this->availableWoocommerceMeta
         );
+
         foreach ($variationMeta as $key => $value) {
             update_post_meta($variationId, $key, $value);
         }
