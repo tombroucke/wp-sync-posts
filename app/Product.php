@@ -87,11 +87,10 @@ class Product extends Post
 
         $this->updateProductMeta($product);
 
-        wc_delete_product_transients($productId);
-        wp_cache_delete($productId, 'products');
-        clean_post_cache($productId);
-
-        Logger::log('Product save triggered');
+        $product->save();
+        
+        $this->updateProductType($product, $this->woocommerceArgs['product_type'] ?? null);
+        // Don't save product again here, as woocommerce will load a WC_Product_Simple from some cache, after which the type change will be lost.
 
         return $productId;
     }
@@ -115,12 +114,6 @@ class Product extends Post
             $this->woocommerceArgs['meta_input']['_backorders'] ?? null
         );
 
-        // Set product type.
-        $productType = $this->woocommerceArgs['product_type'] ?? null;
-        if ($productType) {
-            wp_set_object_terms($product->get_ID(), $productType, 'product_type');
-        }
-
         // Variations.
         if (! empty($this->woocommerceArgs['available_attributes'])) {
             // Create attributes.
@@ -129,11 +122,18 @@ class Product extends Post
                 $this->woocommerceArgs['available_attributes'],
                 $this->woocommerceArgs['variations']
             );
-
+            
+            $productType = $this->woocommerceArgs['product_type'] ?? null;
             if ($productType && $productType == 'variable') {
                 // Create variations.
                 $this->syncProductVariations($product->get_ID(), $this->woocommerceArgs['variations']);
             }
+        }
+    }
+
+    private function updateProductType($product, $productType) {
+        if ($productType) {
+            wp_set_object_terms($product->get_ID(), $productType, 'product_type');
         }
     }
 
@@ -175,9 +175,9 @@ class Product extends Post
      * Sync product stock, set backorders, manage stock
      *
      * @param  ?int  $stockAmount  The amount of products in stock.
-     * @param  string  $backorders  Whether backorders are allowed.
+     * @param  ?string  $backorders  Whether backorders are allowed.
      */
-    private function syncProductStock(\WC_Product $product, ?int $stockAmount = null, string $backorders = 'no'): void
+    private function syncProductStock(\WC_Product $product, ?int $stockAmount = null, ?string $backorders = 'no'): void
     {
         $product->set_backorders($backorders);
 
