@@ -139,74 +139,126 @@ use \Otomaties\WpSyncPosts\Syncer;
 
 $syncer = new Syncer('product');
 
-foreach ($externalPosts as $externalPost) {
-    $args = [
-		'post_title' => $externalPost['title'],
-		'media' => [
+$externalPosts = [
+	[
+		'title' => 'API post 1 title',
+		'id' => 'api-post-1',
+		'product_type' => 'simple',
+		'sku' => 'API-POST-1-SKU',
+	],
+	[
+		'title' => 'API post 2 title',
+		'id' => 'api-post-2',
+		'product_type' => 'variable',
+		'available_attributes' => ['color', 'size'],
+		'sku' => 'API-POST-2-SKU',
+		'variations' => [
 			[
-				'key'           => false,
-				'featured'      => true,
-				'url'           => $externalPost['thumbnail']['url'], // String e.g. 'https://via.placeholder.com/800x600.png?text=Variation+4'
-                'date_modified' => gmdate('Y-m-d H:i:s', $externalPost['thumbnail']['date_modified']),
+				'attributes' => [
+					'color' => 'Blellow',
+					'size' => 'M',
+				],
+				'price' => 29.99,
+				'sku' => 'API-POST-2-RED-M',
+				'stockQuantity' => 10,
+				'weight' => 0.5,
+				'length' => 10,
+				'width' => 5,
+				'height' => 2,
+				'description' => 'Red Medium variation',
+				'backorders' => 'no',
+				'thumbnail' => [
+					'url' => 'https://via.placeholder.com/800x600.png?text=Variation+1',
+					'date_modified' => time(),
+				],
+			],
+			[
+				'attributes' => [
+					'color' => 'Black',
+					'size' => 'L',
+				],
+				'price' => 34.99,
+				'sku' => 'API-POST-2-BLUE-L',
+				'stockQuantity' => 5,
+				'weight' => 0.6,
+				'length' => 12,
+				'width' => 6,
+				'height' => 3,
+				'description' => 'Blue Large variation',
+				'backorders' => 'yes',
+				'thumbnail' => [
+					'url' => 'https://via.placeholder.com/800x600.png?text=Variation+2',
+					'date_modified' => time(),
+				],
 			],
 		],
+	],
+];
+
+
+foreach ($externalPosts as $externalPost) {
+	$existingVariationQuery = [];
+
+	$args = [
+		'post_title' => $externalPost['title'],
 		'meta_input' => [
+			'test' => 'value2',
 			'external_id' => $externalPost['id'],
-		],
-		'tax_input' => [
-			'product_cat' => [16, 57],
 		],
 		'woocommerce' => [
 			'product_type' => $externalPost['product_type'], // string: 'variable', 'simple', ...
-			'available_attributes' => $externalPost['available_attributes'], // Array of attributes e.g. ['color', 'size']
-			'variations' => [], // Array of available variations
 			'meta_input' => [
 				'_sku' => $externalPost['sku'],
 			],
 		],
 	];
 
-	foreach($externalPost['variations'] as $variation) {
-		$args['variations'] = [
-			'woocommerce' => [
-				'attributes' => [
-					'color' => $variation['attributes']['color'], // string
-					'size' => $variation['attributes']['size'], // string
+	if ($externalPost['product_type'] === 'variable') {
+
+		$args['woocommerce']['available_attributes'] = $externalPost['available_attributes'];
+		$args['woocommerce']['variations'] = [];
+
+		foreach(($externalPost['variations'] ?? []) as $variation) {
+			$args['woocommerce']['variations'][] = [
+				'woocommerce' => [
+					'attributes' => [
+						'color' => $variation['attributes']['color'], // string
+						'size' => $variation['attributes']['size'], // string
+					],
+					'meta_input' => [
+						'_regular_price' => $variation['price'], // float
+						'_sku' => $variation['sku'], // string
+						'_stock' => $variation['stockQuantity'], // int
+						'_weight' => $variation['weight'], // float
+						'_length' => $variation['length'], // float
+						'_width' => $variation['width'], // float
+						'_height' => $variation['height'], // float
+						'_variation_description' => $variation['description'],
+						'_backorders' => $variation['backorders'], // 'yes' or 'no'
+					]
 				],
-				'meta_input' => [
-					'_regular_price' => $variation['price'], // float
-					'_sku' => $variation['sku'], // string
-					'_stock' => $variation['stockQuantity'], // int
-					'_weight' => $variation['weight'], // float
-					'_length' => $variation['length'], // float
-					'_width' => $variation['width'], // float
-					'_height' => $variation['height'], // float
-					'_variation_description' => $variation['description'],
-					'_backorders' => $variation['backorders'], // 'yes' or 'no'
-				]
-			],
-			'media' => [
-				[
-					'key'           => false,
-					'featured'      => true,
-					'url'           => $variation['thumbnail']['url'], // String e.g. 'https://via.placeholder.com/800x600.png?text=Variation+4'
-                	'date_modified' => gmdate('Y-m-d H:i:s', $variation['thumbnail']['date_modified']),
+				'media' => [
+					[
+						'key'           => false,
+						'featured'      => true,
+						'url'           => $variation['thumbnail']['url'], // String e.g. 'https://via.placeholder.com/800x600.png?text=Variation+4'
+						'date_modified' => gmdate('Y-m-d H:i:s', $variation['thumbnail']['date_modified']),
+					],
 				],
-			],
+			];
+		}
+
+		$existingVariationQuery = [
+			'by' => 'sku',
 		];
 	}
 
-    $existingPostQuery = [
-        'by'    => 'meta_value', // id, meta_value, sku
-        'key'   => 'external_id', // Only if 'by' => 'meta_value'
-        'value' => $externalPost['id'], // Unique value to identify this post
-    ];
-
-	$existingVariationQuery = [
-		'by' => 'sku',
+	$existingPostQuery = [
+		'by'    => 'meta_value', // id, meta_value, sku
+		'key'   => 'external_id', // Only if 'by' => 'meta_value'
+		'value' => $externalPost['id'], // Unique value to identify this post
 	];
-
-    $syncer->addProduct($args, $existingPostQuery, $existingVariationQuery);
+	$syncer->addProduct($args, $existingPostQuery, $existingVariationQuery);
 }
 
 $syncer->execute();
