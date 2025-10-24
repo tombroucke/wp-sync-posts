@@ -4,6 +4,8 @@
 
 namespace Otomaties\WpSyncPosts;
 
+use Illuminate\Support\Str;
+
 /**
  * Sync WordPress posts with an external API
  */
@@ -75,6 +77,7 @@ class Product extends Post
             'available_attributes' => ! empty($this->woocommerceArgs['available_attributes']),
             'existingVariationQuery' => (bool) $this->existingVariationQuery,
         ];
+
         if (array_sum($requiredVariationParameters) != 0 && array_sum($requiredVariationParameters) != 2) {
             throw new \Exception('Not all required variation parameters {$args[\'woocommerce\'][\'available_attributes\'], $existingVariationQuery} are set. Add them all or remove them all'); // phpcs:ignore Generic.Files.LineLength.TooLong
         }
@@ -88,7 +91,7 @@ class Product extends Post
         $this->updateProductMeta($product);
 
         $product->save();
-        
+
         $this->updateProductType($product, $this->woocommerceArgs['product_type'] ?? null);
         // Don't save product again here, as woocommerce will load a WC_Product_Simple from some cache, after which the type change will be lost.
 
@@ -100,41 +103,43 @@ class Product extends Post
         $internalMetaKeys = $product->get_data_store()->get_internal_meta_keys();
         foreach ($this->woocommerceArgs['meta_input'] as $key => $value) {
             if (in_array($key, $internalMetaKeys, true)) {
-                $function = 'set_'.ltrim($key, '_');
+                $function = Str::of($key)
+                    ->ltrim('_')
+                    ->prepend('set_')
+                    ->toString();
                 $product->{$function}($value);
             } else {
                 $product->update_meta_data($key, $value);
             }
         }
 
-        // Sync stock.
         $this->syncProductStock(
             $product,
             $this->woocommerceArgs['meta_input']['_stock'] ?? null,
             $this->woocommerceArgs['meta_input']['_backorders'] ?? null
         );
 
-        // Variations.
         if (! empty($this->woocommerceArgs['available_attributes'])) {
-            // Create attributes.
             $this->insertProductAttributes(
-                $product->get_ID(),
+                $product,
                 $this->woocommerceArgs['available_attributes'],
                 $this->woocommerceArgs['variations']
             );
-            
+
             $productType = $this->woocommerceArgs['product_type'] ?? null;
             if ($productType && $productType == 'variable') {
-                // Create variations.
                 $this->syncProductVariations($product->get_ID(), $this->woocommerceArgs['variations']);
             }
         }
     }
 
-    private function updateProductType($product, $productType) {
-        if ($productType) {
-            wp_set_object_terms($product->get_ID(), $productType, 'product_type');
+    private function updateProductType($product, $productType)
+    {
+        if (! $productType) {
+            return;
         }
+
+        wp_set_object_terms($product->get_ID(), $productType, 'product_type');
     }
 
     protected function find(array $query, ?string $postType = null): int
@@ -151,7 +156,7 @@ class Product extends Post
                     [
                         'key' => '_sku',
                         'value' => $query['value'],
-                        'compare' => $query['compare'] ?: '=',
+                        'compare' => $query['compare'] ?? '=',
                     ],
                 ],
             ];
@@ -201,25 +206,19 @@ class Product extends Post
     /**
      * Add new product attributes
      *
-     * @param  int  $postId  The post ID.
+     * @param  \WC_Product  $product  The product object.
      * @param  array  $availableAttributes  The available attributes.
      * @param  array  $variations  The variations.
      */
-    private function insertProductAttributes(int $postId, array $availableAttributes, array $variations): void
+    private function insertProductAttributes(\WC_Product $product, array $availableAttributes, array $variations): void
     {
         foreach ($availableAttributes as $attribute) {
-            $values = [];
+            $values = collect($variations)
+                ->pluck('woocommerce.attributes.'.$attribute)
+                ->unique()
+                ->values()
+                ->all();
 
-            foreach ($variations as $variation) {
-                $attribute_keys = array_keys($variation['woocommerce']['attributes']);
-
-                foreach ($attribute_keys as $key) {
-                    if ($key === $attribute) {
-                        $values[] = $variation['woocommerce']['attributes'][$key];
-                    }
-                }
-            }
-            $values = array_unique($values);
             $this->proccessAddAttribute([
                 'attribute_name' => $attribute,
                 'attribute_label' => $attribute,
@@ -227,22 +226,28 @@ class Product extends Post
                 'attribute_orderby' => 'menu_order',
                 'attribute_public' => false,
             ]);
-            wp_set_object_terms($postId, $values, 'pa_'.$attribute);
+
+            wp_set_object_terms($product->get_ID(), $values, 'pa_'.$attribute);
         }
 
-        $productAttributesData = [];
+        $productAttributesData = collect($availableAttributes)
+            ->mapWithKeys(function ($attribute) {
+                $key = 'pa_'.$attribute;
 
-        foreach ($availableAttributes as $attribute) {
-            $productAttributesData['pa_'.$attribute] = [
-                'name' => 'pa_'.$attribute,
-                'value' => '',
-                'is_visible' => '1',
-                'is_variation' => '1',
-                'is_taxonomy' => '1',
-            ];
-        }
+                return [
+                    $key => [
+                        'name' => $key,
+                        'value' => '',
+                        'is_visible' => '1',
+                        'is_variation' => '1',
+                        'is_taxonomy' => '1',
+                    ],
+                ];
+            })
+            ->toArray();
 
-        update_post_meta($postId, '_product_attributes', $productAttributesData);
+        $product->update_meta_data('_product_attributes', $productAttributesData);
+        $product->save();
     }
 
     /**
@@ -268,7 +273,6 @@ class Product extends Post
                 sanitize_title($attribute['attribute_name'])
             ));
         }
-
         $wpdb->insert($wpdb->prefix.'woocommerce_attribute_taxonomies', $attribute);
 
         do_action('woocommerce_attribute_added', $wpdb->insert_id, $attribute);
@@ -314,38 +318,39 @@ class Product extends Post
         if (isset($existingVariationQuery['by'])) {
             $by = $existingVariationQuery['by'];
 
-            foreach ($variations as $index => $variation) {
+            foreach ($variations as $index => $variationArray) {
                 if ($by == 'sku') {
                     $existingVariationQuery = [
                         'by' => $by,
-                        'value' => $variation['woocommerce']['meta_input']['_sku'],
+                        'value' => $variationArray['woocommerce']['meta_input']['_sku'],
                     ];
                 }
 
-                $postId = $this->find($existingVariationQuery, 'product_variation');
-                if ($postId == 0) {
-                    $postId = $this->insertProductVariation($productId, $index, $variation, count($variations));
-                } else {
-                    $postId = $this->updateProductVariation($postId, $variation);
+                $variationId = $this->find($existingVariationQuery, 'product_variation');
+                if ($variationId == 0) {
+                    $variationId = $this->insertProductVariation($productId, $index, $variationArray, count($variations));
                 }
 
+                $variation = $this->updateProductVariation($variationId, $variationArray);
+
                 // Import media.
-                if (isset($variation['media'])) {
-                    foreach ($variation['media'] as $key => $item) {
-                        $media_sync = new Media($item);
-                        $attachment_id = $media_sync->importAndAttachToPost($postId);
+                if (isset($variationArray['media'])) {
+                    foreach ($variationArray['media'] as $key => $item) {
+                        $media = new Media($item);
+                        $attachmentId = $media->importAndAttachToPost($variation->get_ID());
 
                         if (isset($item['key'])) {
-                            update_post_meta($postId, $item['key'], $attachment_id);
+                            $variation->update_meta_data($item['key'], $attachmentId);
+                            $variation->save();
                         }
 
                         if (isset($item['featured']) && $item['featured']) {
-                            set_post_thumbnail($postId, $attachment_id);
+                            set_post_thumbnail($variation->get_ID(), $attachmentId);
                         }
                     }
                 }
 
-                array_push($syncedVariations, $postId);
+                array_push($syncedVariations, $variation->get_ID());
             }
         }
 
@@ -377,10 +382,11 @@ class Product extends Post
      * @param  int  $index  Index of the current variation.
      * @param  array  $variation  Variation array.
      * @param  int  $variationsCount  Total amount of variations.
-     * @return int The variation ID.
+     * @return int The variation.
      */
-    private function insertProductVariation(int $productId, int $index, array $variation, int $variationsCount): int
+    private function insertProductVariation(int $productId, int $index, array $variationArray, int $variationsCount): int
     {
+
         $variation_post = [
             'post_title' => 'Variation #'.$index.' of '.$variationsCount.' for product#'.$productId,
             'post_name' => 'product-'.$productId.'-variation-'.$index,
@@ -393,18 +399,6 @@ class Product extends Post
         $variationId = wp_insert_post($variation_post);
         Logger::log(sprintf('Inserted variation %s', $variationId));
 
-        foreach ($variation['woocommerce']['attributes'] as $attribute => $value) {
-            $attribute_term = get_term_by('name', $value, 'pa_'.$attribute);
-            update_post_meta($variationId, 'attribute_pa_'.$attribute, $attribute_term->slug);
-        }
-
-        $this->syncVariationMeta($variationId, $variation);
-        $this->syncProductStock(
-            wc_get_product($variationId),
-            (isset($variation['woocommerce']['_stock']) ? $variation['woocommerce']['_stock'] : null),
-            (isset($variation['woocommerce']['_backorders']) ? $variation['woocommerce']['_backorders'] : 'no')
-        );
-
         return $variationId;
     }
 
@@ -414,40 +408,62 @@ class Product extends Post
      * @param  int  $variationId  The ID of the variation.
      * @param  array  $variation  The variation array.
      */
-    private function updateProductVariation(int $variationId, array $variation): int
+    private function updateProductVariation(int $variationId, array $variationArray): \WC_Product_Variation
     {
-        Logger::log(sprintf('Updating variation %s', $variationId));
+        $variation = wc_get_product($variationId);
 
-        foreach ($variation['woocommerce']['attributes'] as $attr => $value) {
-            update_post_meta($variationId, 'attribute_pa_'.$attr, $value);
-        }
+        Logger::log(sprintf('Updating variation %s', $variation));
 
-        $this->syncVariationMeta($variationId, $variation);
+        $attributes = collect($variationArray['woocommerce']['attributes'])
+            ->mapWithKeys(function ($value, $attribute) {
+                $attributeKey = Str::of($attribute)->prepend('pa_')->toString();
+
+                return [
+                    $attributeKey => get_term_by('name', $value, $attributeKey)->slug,
+                ];
+            })
+            ->toArray();
+        $variation->set_attributes($attributes);
+
+        $this->syncVariationMeta($variation, $variationArray);
         $this->syncProductStock(
-            wc_get_product($variationId),
-            (isset($variation['woocommerce']['_stock']) ? $variation['woocommerce']['_stock'] : null),
-            (isset($variation['woocommerce']['_backorders']) ? $variation['woocommerce']['_backorders'] : 'no')
+            $variation,
+            (isset($variationArray['woocommerce']['_stock']) ? $variationArray['woocommerce']['_stock'] : null),
+            (isset($variationArray['woocommerce']['_backorders']) ? $variationArray['woocommerce']['_backorders'] : 'no')
         );
 
-        return $variationId;
+        $variation->save();
+
+        return $variation;
     }
 
     /**
      * Sync variation meta
      *
-     * @param  int  $variationId  The ID of the variation.
-     * @param  array  $variation  The variation array.
+     * @param  \WC_Product_Variation  $variation  The ID of the variation.
+     * @param  array  $variationArray  The variation array.
      * @return void
      */
-    private function syncVariationMeta($variationId, $variation)
+    private function syncVariationMeta(\WC_Product_Variation $variation, array $variationArray)
     {
         $variationMeta = $this->removeUnsupportedArgs(
-            $variation['woocommerce']['meta_input'],
+            $variationArray['woocommerce']['meta_input'],
             $this->availableWoocommerceMeta
         );
 
+        $internalMetaKeys = $variation->get_data_store()->get_internal_meta_keys();
+
         foreach ($variationMeta as $key => $value) {
-            update_post_meta($variationId, $key, $value);
+            if (in_array($key, $internalMetaKeys, true)) {
+                $function = Str::of($key)
+                    ->replaceStart('_variation', '')
+                    ->ltrim('_')
+                    ->prepend('set_')
+                    ->toString();
+                $variation->{$function}($value);
+            } else {
+                $variation->update_meta_data($key, $value);
+            }
         }
     }
 }
