@@ -81,9 +81,9 @@ class Post
     /**
      * Save post type, args & find match in database
      *
-     * @param string $postType The post type
-     * @param array<string, mixed> $args The arguments for wp_insert_post/wp_update_post
-     * @param array<string, mixed> $existingPostQuery The query to find an existing post
+     * @param  string  $postType  The post type
+     * @param  array<string, mixed>  $args  The arguments for wp_insert_post/wp_update_post
+     * @param  array<string, mixed>  $existingPostQuery  The query to find an existing post
      */
     public function __construct(protected string $postType, array $args, array $existingPostQuery)
     {
@@ -108,7 +108,7 @@ class Post
     /**
      * Set post ID
      *
-     * @param int $id The post ID
+     * @param  int  $id  The post ID
      * @return int The set post ID
      */
     private function setId(int $id): int
@@ -119,7 +119,7 @@ class Post
     /**
      * Extra media key from an array
      *
-     * @param array<string, mixed> $args
+     * @param  array<string, mixed>  $args
      * @return array The media array or an empty array if not set
      */
     private function extractMedia(array $args): array
@@ -130,8 +130,8 @@ class Post
     /**
      * Compare two arrays, remove keys from first array which aren't present in second array
      *
-     * @param  array<string, mixed> $args  The array with actual data
-     * @param  array<string> $availableArgs  The array to compare to
+     * @param  array<string, mixed>  $args  The array with actual data
+     * @param  array<string>  $availableArgs  The array to compare to
      * @return array The filtered array with actual data
      */
     protected function removeUnsupportedArgs(array $args, array $availableArgs): array
@@ -142,7 +142,7 @@ class Post
     /**
      * Prepare arguments for wp_insert_post/wp_update_post
      *
-     * @param array<string, mixed> $args
+     * @param  array<string, mixed>  $args
      * @return array<string, mixed> The prepared arguments
      */
     private function prepareArgs(array $args): array
@@ -166,8 +166,7 @@ class Post
     /**
      * Find a post in the database
      *
-     * @param array<string, mixed> $query
-     * @param string|null $postType
+     * @param  array<string, mixed>  $query
      * @return int The found post ID or 0 if not found
      */
     protected function find(array $query, ?string $postType = null): int

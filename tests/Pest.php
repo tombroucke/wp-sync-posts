@@ -9,5 +9,5 @@ uses(TestCase::class)->in('Unit');
 
 function isUnitTest()
 {
-    return !empty($GLOBALS['argv']) && ($GLOBALS['argv'][1] ?? '') === '--group=unit';
+    return ! empty($GLOBALS['argv']) && ($GLOBALS['argv'][1] ?? '') === '--group=unit';
 }

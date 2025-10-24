@@ -25,7 +25,7 @@ class Syncer
      * Create and add a new post instance to the sync collection
      *
      * @param  class-string  $className  The fully qualified class name to instantiate
-     * @param  array<string, mixed> $args  Arguments to pass to the class constructor (postType will be prepended)
+     * @param  array<string, mixed>  $args  Arguments to pass to the class constructor (postType will be prepended)
      * @return object The created post instance
      *
      * @throws \ReflectionException If the class cannot be instantiated
@@ -49,7 +49,7 @@ class Syncer
     /**
      * Add post to posts to sync
      *
-     * @param array<string, mixed> ...$args
+     * @param  array<string, mixed>  ...$args
      * @return Post The created post instance
      */
     public function addPost(array ...$args): Post
@@ -60,7 +60,7 @@ class Syncer
     /**
      * Add post to posts to sync
      *
-     * @param array<string, mixed> ...$args
+     * @param  array<string, mixed>  ...$args
      * @return Product The created product instance
      */
     public function addProduct(array ...$args): Product
@@ -91,10 +91,10 @@ class Syncer
         }
 
         $this->posts
-            ->each(fn($post) => $post->save())
+            ->each(fn ($post) => $post->save())
             // We need to execute setWpmlTranslation again after all posts are saved
             // because the original language might have been saved after the translation
-            ->each(fn($post) => $post->setWpmlTranslation());
+            ->each(fn ($post) => $post->setWpmlTranslation());
 
         if ($cleanUp) {
             $this->cleanupAbandonedPosts($forceDelete);
@@ -111,7 +111,7 @@ class Syncer
     public function cleanupAbandonedPosts(bool $forceDelete = true): void
     {
         $syncedPostIds = $this->posts
-            ->map(fn($post) => $post->id())
+            ->map(fn ($post) => $post->id())
             ->filter()
             ->toArray();
 
@@ -132,7 +132,7 @@ class Syncer
 
         foreach ($abandonedPostIds as $abandonedPostId) {
             if (! wp_delete_post($abandonedPostId, $forceDelete)) {
-                Logger::log('Failed to delete post ID ' . $abandonedPostId);
+                Logger::log('Failed to delete post ID '.$abandonedPostId);
             }
         }
     }

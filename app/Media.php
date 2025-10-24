@@ -70,7 +70,7 @@ class Media
     /**
      * Set object properties
      *
-     * @param array<string, mixed> $media Media array.
+     * @param  array<string, mixed>  $media  Media array.
      */
     public function __construct(array $media)
     {
@@ -88,7 +88,7 @@ class Media
     /**
      * Determine the file type using WordPress functions or custom detection
      *
-     * @param string $file The path to the file
+     * @param  string  $file  The path to the file
      * @return array<string, string>|null Array with 'ext' and 'type' keys or null if unsupported
      */
     private function determineFileType(string $file): ?array
@@ -106,17 +106,18 @@ class Media
     /**
      * Custom MIME type detection using finfo
      *
-     * @param string $file The path to the file
+     * @param  string  $file  The path to the file
      * @return array<string, string>|null Array with 'ext' and 'type' keys or null if unsupported
      */
     private function customDetectMimeType(string $file): ?array
     {
-        $mimeTypeDetector = new FinfoMimeTypeDetector();
+        $mimeTypeDetector = new FinfoMimeTypeDetector;
         $mimeType = $mimeTypeDetector->detectMimeTypeFromFile($file);
 
-        if (!isset(self::MIME_TYPE_MAPPINGS[$mimeType])) {
+        if (! isset(self::MIME_TYPE_MAPPINGS[$mimeType])) {
             Logger::log("Unsupported MIME type detected: {$mimeType}");
-            Logger::log("File: " . print_r($file, true));
+            Logger::log('File: '.print_r($file, true));
+
             return null;
         }
 
@@ -129,7 +130,7 @@ class Media
     /**
      * Generate a filename with the correct extension
      *
-     * @param string $extension The file extension
+     * @param  string  $extension  The file extension
      * @return string The generated filename
      */
     private function generateFileName(string $extension)
@@ -137,8 +138,8 @@ class Media
         $baseFilename = $this->filename ?? $this->extractFilenameFromUrl();
 
         return Str::of($baseFilename)
-            ->beforeLast('.' . $extension)
-            ->append('.' . $extension)
+            ->beforeLast('.'.$extension)
+            ->append('.'.$extension)
             ->toString();
     }
 
@@ -155,8 +156,8 @@ class Media
     /**
      * Find existing media by original URL and date modified
      *
-     * @param string $url The original media URL
-     * @param string $dateModified The original media date modified (Y-m-d H:i:s)
+     * @param  string  $url  The original media URL
+     * @param  string  $dateModified  The original media date modified (Y-m-d H:i:s)
      * @return int|null The attachment ID if found, null otherwise
      */
     public function findExistingMedia(string $url, string $dateModified): ?int
@@ -186,7 +187,7 @@ class Media
     /**
      * Remove outdated media if it exists
      *
-     * @param string $url The original media URL
+     * @param  string  $url  The original media URL
      * @return bool|int The attachment ID if removed, false otherwise
      */
     public function maybeRemoveOutdatedMedia(string $url): bool|int
@@ -226,7 +227,7 @@ class Media
                 try {
                     $this->filestream = call_user_func($this->filestream);
                 } catch (\Exception $e) {
-                    Logger::log($e->getMessage() . ' ' . $this->url);
+                    Logger::log($e->getMessage().' '.$this->url);
 
                     return null;
                 }
@@ -244,7 +245,7 @@ class Media
     /**
      * Handle file upload in WordPress
      *
-     * @param string $tempFile The path to the temporary file
+     * @param  string  $tempFile  The path to the temporary file
      * @return array<string, mixed> The upload result from wp_handle_sideload
      */
     private function handleFileUploadInWordPress(string $tempFile): array
@@ -269,8 +270,8 @@ class Media
     /**
      * Create a WordPress attachment from the uploaded file
      *
-     * @param array<string, string> $upload The upload array returned by wp_handle_sideload
-     * @param int|null $postId The ID of the post to attach the media to
+     * @param  array<string, string>  $upload  The upload array returned by wp_handle_sideload
+     * @param  int|null  $postId  The ID of the post to attach the media to
      * @return int The attachment ID
      */
     private function createAttachment(array $upload, ?int $postId): int
@@ -306,7 +307,7 @@ class Media
     /**
      * Import and attach media
      *
-     * @param int|null $postId The ID of the post to attach media to
+     * @param  int|null  $postId  The ID of the post to attach media to
      * @return int|null The attachment ID
      */
     public function importAndAttachToPost($postId = null): ?int
@@ -315,11 +316,13 @@ class Media
 
         if (empty($this->url)) {
             Logger::log(sprintf('No attachment url given for post %s', $postId));
+
             return null;
         }
 
         if ($existingMediaId = $this->findExistingMedia($this->url, $this->dateModified)) {
             Logger::log(sprintf('Media already exists: #%s. Skipping', $existingMediaId));
+
             return $existingMediaId;
         }
 
@@ -333,6 +336,7 @@ class Media
         $uploadResult = $this->handleFileUploadInWordPress($tempFile);
         if ($this->hasUploadError($uploadResult)) {
             $this->cleanupTempFile($tempFile);
+
             return null;
         }
 
@@ -346,23 +350,19 @@ class Media
 
     /**
      * Load required WordPress files for media handling
-     *
-     * @return void
      */
     private function requireWordPressIncludes(): void
     {
         collect([
-            ABSPATH . 'wp-admin/includes/file.php',
-            ABSPATH . 'wp-admin/includes/image.php',
+            ABSPATH.'wp-admin/includes/file.php',
+            ABSPATH.'wp-admin/includes/image.php',
         ])
-        ->filter(fn($file) => file_exists($file))
-        ->each(fn($file) => require_once $file);
+            ->filter(fn ($file) => file_exists($file))
+            ->each(fn ($file) => require_once $file);
     }
 
     /**
      * Remove outdated media if it exists
-     *
-     * @return void
      */
     private function removeOutdatedMediaIfExists(): void
     {
@@ -374,18 +374,19 @@ class Media
     /**
      * Check if downloading the file resulted in an error
      *
-     * @param null|string|false|\WP_Error $tempFile
      * @return bool True if there was an error, false otherwise
      */
     private function isDownloadError(null|string|false|\WP_Error $tempFile): bool
     {
         if (is_wp_error($tempFile)) {
             Logger::log(sprintf('Failed to download file from %s. %s', $this->url, $tempFile->get_error_message()));
+
             return true;
         }
 
         if ($tempFile === null || $tempFile === false) {
             Logger::log(sprintf('Failed to download file from %s. Download returned null/false', $this->url));
+
             return true;
         }
 
@@ -395,23 +396,22 @@ class Media
     /**
      * Check if the upload resulted in an error
      *
-     * @param array<string, string> $uploadResult
+     * @param  array<string, string>  $uploadResult
      * @return bool True if there was an error, false otherwise
      */
     private function hasUploadError(array $uploadResult): bool
     {
-        if (!empty($uploadResult['error'])) {
-            Logger::log('File upload error: ' . print_r($uploadResult, true));
+        if (! empty($uploadResult['error'])) {
+            Logger::log('File upload error: '.print_r($uploadResult, true));
+
             return true;
         }
+
         return false;
     }
 
     /**
      * Clean up the temporary file
-     *
-     * @param string $tempFile
-     * @return void
      */
     private function cleanupTempFile(string $tempFile): void
     {
